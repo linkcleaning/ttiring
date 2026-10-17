@@ -1,0 +1,149 @@
+import { useCallback, useEffect, useState } from 'react';
+import { ArrowUp, CalendarDays, House, ScrollText, Settings } from 'lucide-react';
+import Onboarding, { toProfile } from './components/Onboarding.jsx';
+import HomeTab from './components/HomeTab.jsx';
+import ManseTab from './components/ManseTab.jsx';
+import MonthCalendar from './components/MonthCalendar.jsx';
+import SettingsTab from './components/SettingsTab.jsx';
+import { TermContext, TermSheet, TopBar } from './components/ui.jsx';
+import { fourPillars, lunarToSolar } from './lib/saju.js';
+import { setVibrate } from './lib/sound.js';
+
+const KEYS = { profile: 'paljja.profile.v2', settings: 'paljja.settings', drawn: 'paljja.drawn' };
+const load = (k, fallback) => {
+  try {
+    const v = localStorage.getItem(k);
+    return v ? JSON.parse(v) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+const save = (k, v) => {
+  try {
+    if (v === null) localStorage.removeItem(k);
+    else localStorage.setItem(k, JSON.stringify(v));
+  } catch { /* 저장 불가 환경 */ }
+};
+
+const TABS = [
+  { key: 'home', label: '홈', icon: House, title: '홈' },
+  { key: 'manse', label: '만세력', icon: ScrollText, title: '나의 만세력' },
+  { key: 'calendar', label: '달력', icon: CalendarDays, title: '운세 달력' },
+  { key: 'settings', label: '설정', icon: Settings, title: '설정' },
+];
+
+function yearPillar(p) {
+  const s = p.calendar === 'lunar' ? lunarToSolar(p.year, p.month, p.day, p.leap) : p;
+  return fourPillars(s.year, s.month, s.day, null).year;
+}
+
+export default function App() {
+  const [profile, setProfile] = useState(() => load(KEYS.profile, null));
+  const [settings, setSettings] = useState(() => ({ sound: true, vibrate: true, bigText: false, ...load(KEYS.settings, {}) }));
+  const [drawnDate, setDrawnDate] = useState(() => load(KEYS.drawn, ''));
+  const [tab, setTab] = useState('home');
+  const [editing, setEditing] = useState(false);
+  const [dateOffset, setDateOffset] = useState(0);
+  const [term, setTerm] = useState(null);
+  const [toastMsg, setToastMsg] = useState('');
+  const [showTop, setShowTop] = useState(false);
+
+  useEffect(() => save(KEYS.settings, settings), [settings]);
+  useEffect(() => { setVibrate(settings.vibrate); }, [settings.vibrate]);
+  useEffect(() => {
+    document.documentElement.style.zoom = settings.bigText ? '1.12' : '';
+  }, [settings.bigText]);
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 500);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const toast = useCallback((m) => {
+    setToastMsg(m);
+    setTimeout(() => setToastMsg(''), 2200);
+  }, []);
+  const go = (t) => { setTab(t); window.scrollTo(0, 0); };
+
+  const finishOnboarding = (p) => {
+    save(KEYS.profile, p);
+    setProfile(p);
+    setEditing(false);
+    setDateOffset(0);
+    go('home');
+  };
+
+  if (!profile || editing) {
+    return (
+      <TermContext.Provider value={setTerm}>
+        <Onboarding initial={editing ? profile : null} onDone={finishOnboarding} onCancel={() => setEditing(false)} soundOn={settings.sound} />
+      </TermContext.Provider>
+    );
+  }
+
+  const current = TABS.find((t) => t.key === tab);
+
+  return (
+    <TermContext.Provider value={setTerm}>
+      <div className="mx-auto min-h-screen max-w-[440px] px-4 pb-[calc(84px+env(safe-area-inset-bottom))]">
+        <TopBar title={current.title} />
+
+        {tab === 'home' && (
+          <HomeTab profile={profile} soundOn={settings.sound}
+            drawnDate={drawnDate}
+            onDrawn={() => { const d = new Date(); const k = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; setDrawnDate(k); save(KEYS.drawn, k); }}
+            dateOffset={dateOffset} setDateOffset={setDateOffset}
+            onOpenCalendar={() => go('calendar')} toast={toast} />
+        )}
+        {tab === 'manse' && <ManseTab profile={profile} />}
+        {tab === 'calendar' && (
+          <div className="pb-6 pt-1">
+            <MonthCalendar input={profile} zodiac={yearPillar(profile)}
+              onOpenDay={(off) => { setDateOffset(off); go('home'); }} />
+            <p className="mt-3 px-1 text-[12px] leading-relaxed text-faint">
+              날짜를 누르면 그날의 점수와 한마디가 나와요. 아이콘은 특별한 기운이 드는 날이에요. 낮은 점수의 날도 그냥 조금 조심하자는 뜻일 뿐, 약속이나 일정을 운세 때문에 바꿀 필요는 없어요.
+            </p>
+          </div>
+        )}
+        {tab === 'settings' && (
+          <SettingsTab profile={profile} settings={settings} setSettings={setSettings}
+            onEdit={() => setEditing(true)} openTerm={setTerm}
+            onUpdateProfile={(p) => { const next = toProfile({ ...p, unknownTime: !p.time }); save(KEYS.profile, next); setProfile(next); }}
+            onReset={() => { Object.values(KEYS).forEach((k) => save(k, null)); setProfile(null); setDrawnDate(''); setTab('home'); }} />
+        )}
+      </div>
+
+      {/* 아래 탭 */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur" aria-label="메뉴">
+        <div className="mx-auto grid max-w-[440px] grid-cols-4">
+          {TABS.map(({ key, label, icon: Icon }) => {
+            const on = tab === key;
+            return (
+              <button key={key} type="button" onClick={() => go(key)} aria-current={on ? 'page' : undefined}
+                className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] ${on ? 'font-bold text-ink' : 'text-faint'}`}>
+                <span className={`rounded-xl px-4 py-1 ${on ? 'bg-bg' : ''}`}><Icon size={22} strokeWidth={on ? 2.4 : 2} /></span>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {showTop && (
+        <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="맨 위로"
+          className="reveal fixed z-30 flex h-12 w-12 items-center justify-center rounded-full border border-line bg-card shadow-[0_4px_14px_rgba(0,0,0,.12)]"
+          style={{ right: 'max(16px, calc((100vw - 440px) / 2 + 16px))', bottom: 'calc(86px + env(safe-area-inset-bottom))' }}>
+          <ArrowUp size={22} />
+        </button>
+      )}
+
+      {toastMsg && (
+        <div role="status" className="fixed inset-x-0 bottom-24 z-50 mx-auto w-fit rounded-full bg-ink px-4 py-2 text-[14px] text-white shadow-lg">
+          {toastMsg}
+        </div>
+      )}
+
+      <TermSheet term={term} onClose={() => setTerm(null)} />
+    </TermContext.Provider>
+  );
+}

@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+/* 밝고 깔끔한 앱 스타일: 연회색 바탕 + 흰 카드 + 먹색 글자, 만세력 패만 오행 색 */
+@theme {
+  --color-bg: #f4f4f6;
+  --color-card: #ffffff;
+  --color-line: #e7e7ec;
+  --color-ink: #1c1c21;
+  --color-sub: #7d7d88;
+  --color-faint: #b3b3bd;
+  --color-point: #e4573f;
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-brush: "Song Myung", "Nanum Myeongjo", serif;
+  --font-hand: "Nanum Brush Script", "Song Myung", cursive;
+}
+
+html, body, #root { min-height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  letter-spacing: -0.01em;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* ── 추첨 패 ─────────────────────────────── */
+.tile-spin .tile-char {
+  animation: reel 90ms linear infinite;
+  filter: blur(0.5px);
+}
+.tile-stop { animation: thunk 380ms cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes reel {
+  0% { transform: translateY(-36%); opacity: .3; }
+  50% { opacity: 1; }
+  100% { transform: translateY(36%); opacity: .3; }
+}
+@keyframes thunk {
+  0% { transform: scale(1.15); }
+  60% { transform: scale(.95); }
+  100% { transform: scale(1); }
+}
+
+/* 띠 캐릭터 통통 */
+.bob { animation: bob 2.4s ease-in-out infinite; }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+.wiggle { animation: wiggle 260ms ease-in-out infinite; }
+@keyframes wiggle { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+
+.line-in { animation: linein 260ms ease-out both; transform-origin: center; }
+@keyframes linein { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.reveal { animation: reveal 450ms ease-out both; }
+@keyframes reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tile-spin .tile-char, .tile-stop, .bob, .wiggle, .line-in, .reveal {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* 아래에서 올라오는 시트 */
+.sheet-in { animation: sheetin 260ms cubic-bezier(.2,.9,.3,1) both; }
+@keyframes sheetin { from { transform: translateY(100%); } to { transform: none; } }
+.fade-in { animation: fadein 200ms ease-out both; }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
