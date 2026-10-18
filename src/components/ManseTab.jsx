@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { BRANCHES, BRANCHES_KO, ELEMENTS, STEMS, STEMS_KO, STEM_EL, BRANCH_EL, manseryeok } from '../lib/saju.js';
-import { STEM_COLOR } from '../lib/fortune.js';
+import { STEM_COLOR, josa } from '../lib/fortune.js';
 import { ilju } from '../lib/personality.js';
 import ZodiacAvatar from './ZodiacAvatar.jsx';
 import { EL_STYLE } from './SlotBoard.jsx';
 import { Card, FunNotice, Term } from './ui.jsx';
-import { ANIMALS } from '../lib/saju.js';
+import { ANIMALS, mod } from '../lib/saju.js';
+import { funProfile } from '../lib/profileText.js';
 
 const COL_LABEL = { hour: ['시주', '말년운'], day: ['일주', '장년운'], month: ['월주', '청년운'], year: ['년주', '초년운'] };
 const EL_NAME = ['나무', '불', '흙', '쇠', '물'];
@@ -35,10 +36,10 @@ export default function ManseTab({ profile }) {
   }, [m]);
   if (!m) return <p className="p-6 text-sub">생일 정보를 다시 확인해 주세요.</p>;
   const p = ilju(m.pillars.day);
+  const f = funProfile(m);
   const y = m.pillars.year;
   const max = Math.max(...m.elements);
   const most = m.elements.indexOf(max);
-  const missing = m.elements.map((c, i) => (c === 0 ? i : -1)).filter((i) => i >= 0);
   const age = new Date().getFullYear() - m.solar.year + 1;
   const curDw = m.daewoon?.list.findLast((d) => d.age <= age);
 
@@ -49,9 +50,20 @@ export default function ManseTab({ profile }) {
         <ZodiacAvatar branch={y.branch} stem={y.stem} size={84} mood={4} className="bob mx-auto" title={`${ANIMALS[y.branch]}띠`} />
         <p className="mt-3 text-[13px] text-sub">{STEM_COLOR[y.stem]} {ANIMALS[y.branch]}띠, 나의 일주는</p>
         <h2 className="mt-1 text-[22px] font-extrabold">{p.name} · {p.label}</h2>
-        <p className="mt-2 text-[17px] font-bold">{p.title}</p>
+        <p className="mt-1.5 text-[13.5px] text-[#5B3FB0]">{f.catchphrase}</p>
+        <p className="mt-2.5 text-[17px] font-bold">{p.title}</p>
         <p className="mt-3 rounded-2xl bg-bg px-4 py-3.5 text-left text-[15px] leading-[1.75] text-[#3a3a42]">{p.desc}</p>
         <p className="mt-2 px-1 text-left text-[14px] leading-[1.65] text-sub">{p.inner}</p>
+
+        <div className="mt-4 text-left">
+          <p className="text-[12px] text-sub">이런 말 자주 듣죠?</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {f.heard.map((h) => (
+              <span key={h} className="rounded-full bg-[#FFF6E5] px-3 py-1.5 text-[13.5px] font-medium text-[#B7791F]">“{h}”</span>
+            ))}
+          </div>
+        </div>
+
         <div className="mt-3 grid grid-cols-2 gap-2 text-left">
           <div className="rounded-xl bg-[#E7EFFE] px-3 py-2.5">
             <p className="text-[11px] font-semibold text-[#2563EB]">강점</p>
@@ -63,6 +75,96 @@ export default function ManseTab({ profile }) {
           </div>
         </div>
       </section>
+
+      {/* 나는 이런 사람 */}
+      <Card title="조금 더 들여다보면">
+        <dl className="space-y-3">
+          {[
+            ['💘', '연애할 때', f.love],
+            ['💼', '어울리는 일', f.job],
+            ['😮‍💨', '힘들 때는', f.stress],
+            ['🔋', `에너지 타입 · ${f.stage.name}`, f.stage.desc],
+          ].map(([emoji, k, v]) => (
+            <div key={k} className="flex gap-3 rounded-2xl bg-bg px-4 py-3">
+              <span className="text-[17px] leading-none" aria-hidden="true">{emoji}</span>
+              <div className="min-w-0">
+                <dt className="text-[12.5px] font-semibold text-sub">{k}</dt>
+                <dd className="mt-0.5 text-[14.5px] leading-[1.65]">{v}</dd>
+              </div>
+            </div>
+          ))}
+        </dl>
+      </Card>
+
+      {/* 타고난 힘 (십성) */}
+      <Card title="내가 타고난 힘" right={<span className="text-[12px] text-sub">여덟 글자 분포</span>}>
+        <ul className="space-y-2">
+          {f.gods.map((g) => (
+            <li key={g.key} className="flex items-center gap-3">
+              <Term name={{ 비겁: '비견', 식상: '식신', 재성: '정재', 관성: '정관', 인성: '정인' }[g.key]}
+                className="w-10 text-[13px] font-semibold no-underline">{g.key}</Term>
+              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-bg">
+                <div className="h-full rounded-full bg-ink" style={{ width: `${Math.round(g.ratio * 100)}%`, opacity: g.count ? 0.85 : 0 }} />
+              </div>
+              <span className="w-5 text-right text-[13px] font-bold tabular-nums">{g.count}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 rounded-2xl bg-[#E7EFFE] px-4 py-3">
+          <p className="text-[13px] font-bold text-[#2563EB]">가장 강한 건 {f.topGod.key} — {f.topGod.title}</p>
+          <p className="mt-1 text-[14.5px] leading-[1.65] text-[#3a3a42]">{f.topGod.desc}</p>
+        </div>
+        {f.noneGods.map((g) => (
+          <p key={g.key} className="mt-2 px-1 text-[13.5px] leading-[1.65] text-sub">
+            <b className="text-ink">{josa(g.key, '은/는')}</b> 하나도 없어요. {g.desc}
+          </p>
+        ))}
+      </Card>
+
+      {/* 띠 궁합 */}
+      <Card title="나와 잘 맞는 띠">
+        <div className="flex gap-2">
+          {f.match.good.map((a) => {
+            const b = ANIMALS.indexOf(a);
+            return (
+              <div key={a} className="flex flex-1 flex-col items-center rounded-2xl bg-[#E3F3EA] py-3">
+                <ZodiacAvatar branch={b} stem={2} size={46} mood={5} title={`${a}띠`} />
+                <span className="mt-1.5 text-[13.5px] font-bold text-[#2E8B57]">{a}띠</span>
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-2 px-1 text-[13px] leading-relaxed text-sub">삼합·육합을 이루는 띠예요. 마음이 잘 통하고 서로 힘을 보태 줘요.</p>
+        <div className="mt-4 flex gap-2">
+          {f.match.care.map((a) => {
+            const b = ANIMALS.indexOf(a);
+            return (
+              <div key={a} className="flex flex-1 flex-col items-center rounded-2xl bg-[#FDE8E6] py-3">
+                <ZodiacAvatar branch={b} stem={2} size={46} mood={2} title={`${a}띠`} />
+                <span className="mt-1.5 text-[13.5px] font-bold text-[#DC3B2F]">{a}띠</span>
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-2 px-1 text-[13px] leading-relaxed text-sub">충·원진이 드는 띠예요. 미워서가 아니라 속도가 달라서 부딪히기 쉬우니, 한 박자 쉬고 말하면 괜찮아요.</p>
+      </Card>
+
+      {/* 특별한 별 */}
+      {f.stars.length > 0 && (
+        <Card title="내 사주에 있는 특별한 별" right={<span className="text-[12px] text-sub">신살</span>}>
+          <ul className="space-y-2">
+            {f.stars.map((st) => (
+              <li key={st.title} className="flex gap-3 rounded-2xl bg-bg px-4 py-3">
+                <span className="text-[18px] leading-none" aria-hidden="true">{st.emoji}</span>
+                <div className="min-w-0">
+                  <p className="text-[14px] font-bold">{st.title} <span className="text-[11.5px] font-normal text-faint">{st.at}</span></p>
+                  <p className="mt-0.5 text-[14px] leading-[1.6] text-[#3a3a42]">{st.desc}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {/* 만세력 표 */}
       <Card title="만세력" right={<span className="text-[12px] text-sub">밑줄 친 용어를 누르면 풀이가 나와요</span>}>
@@ -166,12 +268,17 @@ export default function ManseTab({ profile }) {
             </li>
           ))}
         </ul>
-        <p className="mt-4 text-[14px] leading-[1.7] text-[#3a3a42]">
-          {EL_NAME[most]}({ELEMENTS[most]}) 기운이 {max}개로 가장 많아요.
-          {missing.length > 0
-            ? ` ${missing.map((i) => `${EL_NAME[i]}(${ELEMENTS[i]})`).join(', ')} 기운은 없어서, 그 기운의 색과 방향을 가까이하면 균형이 맞아요.`
-            : ' 다섯 기운이 모두 있어서 균형이 좋은 편이에요.'}
+        <p className="mt-4 rounded-2xl bg-bg px-4 py-3 text-[14px] leading-[1.7] text-[#3a3a42]">
+          <b>{EL_NAME[most]}({ELEMENTS[most]}) 기운이 {max}개로 가장 많아요.</b> {f.element.topDesc}
         </p>
+        {f.element.none.map((n) => (
+          <p key={n.el} className="mt-2 px-1 text-[13.5px] leading-[1.65] text-sub">
+            {n.name}({n.hanja}) 기운은 없어요. {n.desc}
+          </p>
+        ))}
+        {f.element.none.length === 0 && (
+          <p className="mt-2 px-1 text-[13.5px] leading-[1.65] text-sub">다섯 기운이 모두 있어서 균형이 좋은 편이에요.</p>
+        )}
       </Card>
 
       {/* 대운 */}

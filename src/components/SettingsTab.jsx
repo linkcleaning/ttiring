@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { ANIMALS, HOURS } from '../lib/saju.js';
 import { STEM_COLOR } from '../lib/fortune.js';
 import { GLOSSARY } from '../lib/glossary.js';
-import { fourPillars, lunarToSolar } from '../lib/saju.js';
+import { birthLabel, personLabel, personYear } from '../lib/people.js';
 import ZodiacAvatar from './ZodiacAvatar.jsx';
 import { FunNotice, Sheet } from './ui.jsx';
 
@@ -43,29 +43,65 @@ const Group = ({ title, children }) => (
   </section>
 );
 
-export default function SettingsTab({ profile, settings, setSettings, onEdit, onReset, openTerm, onUpdateProfile }) {
+export default function SettingsTab({ profile, settings, setSettings, onEdit, onReset, openTerm, onUpdateProfile,
+  people = [], activeId, onSelectPerson, onAddPerson, onDeletePerson }) {
   const [sheet, setSheet] = useState(null);
-  const solar = profile.calendar === 'lunar' ? lunarToSolar(profile.year, profile.month, profile.day, profile.leap) : profile;
-  const y = fourPillars(solar.year, solar.month, solar.day, null).year;
+  const [toDelete, setToDelete] = useState(null);
+  const me = people.find((x) => x.id === 'me') || profile;
+  const y = personYear(me);
 
   return (
     <div className="pb-8 pt-1">
-      <button type="button" onClick={onEdit} className="flex w-full items-center gap-4 rounded-[20px] bg-card p-5 text-left">
+      <button type="button" onClick={() => onEdit(me)} className="flex w-full items-center gap-4 rounded-[20px] bg-card p-5 text-left">
         <ZodiacAvatar branch={y.branch} stem={y.stem} size={60} mood={4} title={`${ANIMALS[y.branch]}띠`} />
         <div className="min-w-0 flex-1">
-          <p className="text-[18px] font-bold">{profile.name || `${STEM_COLOR[y.stem]} ${ANIMALS[y.branch]}띠님`}</p>
+          <p className="text-[18px] font-bold">{me.name || `${STEM_COLOR[y.stem]} ${ANIMALS[y.branch]}띠님`}</p>
           <p className="mt-0.5 text-[14px] text-sub">
-            {profile.year}.{pad(profile.month)}.{pad(profile.day)} ({profile.calendar === 'lunar' ? '음력' : '양력'})
-            {profile.hour !== null && profile.hour !== undefined ? `, ${HOURS[profile.hour].label}` : ', 시간 모름'}{profile.city ? `, ${profile.city}` : ''}
+            {me.year}.{pad(me.month)}.{pad(me.day)} ({me.calendar === 'lunar' ? '음력' : '양력'})
+            {me.hour !== null && me.hour !== undefined ? `, ${HOURS[me.hour].label}` : ', 시간 모름'}{me.city ? `, ${me.city}` : ''}
           </p>
         </div>
         <ChevronRight size={20} className="text-faint" />
       </button>
 
+      <Group title="운세를 보는 사람">
+        {people.map((p) => {
+          const py = personYear(p);
+          const on = p.id === activeId;
+          return (
+            <div key={p.id} className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-b-0">
+              <button type="button" onClick={() => onSelectPerson(p.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                <ZodiacAvatar branch={py.branch} stem={py.stem} size={40} mood={on ? 4 : 3} title={personLabel(p)} />
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5">
+                    <b className="truncate text-[15.5px]">{personLabel(p)}</b>
+                    <span className="shrink-0 rounded-full bg-bg px-2 py-0.5 text-[11px] text-sub">{p.relation || '나'}</span>
+                    {on && <span className="shrink-0 rounded-full bg-ink px-2 py-0.5 text-[11px] text-white">보는 중</span>}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[12.5px] text-sub">{birthLabel(p)}</span>
+                </span>
+              </button>
+              <button type="button" onClick={() => onEdit(p)} aria-label={`${personLabel(p)} 수정`} className="rounded-lg p-2 text-sub">
+                <ChevronRight size={18} />
+              </button>
+              {p.id !== 'me' && (
+                <button type="button" onClick={() => setToDelete(p)} aria-label={`${personLabel(p)} 삭제`} className="rounded-lg p-2 text-faint">
+                  <Trash2 size={17} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+        <button type="button" onClick={onAddPerson}
+          className="flex w-full items-center justify-center gap-1.5 border-t border-line py-4 text-[15px] font-semibold text-ink">
+          <Plus size={17} strokeWidth={3} /> 가족·친구 추가
+        </button>
+      </Group>
+
       <Group title="내 사주">
-        <Row label="내 정보 수정" onClick={onEdit} />
-        <Row label="최근 고민" value={(profile.concerns || []).join(', ') || '없음'} onClick={onEdit} />
-        <Toggle label="야자시 적용 (밤 11시대 출생)" on={!!profile.yajasi} onChange={(v) => onUpdateProfile({ ...profile, yajasi: v })} />
+        <Row label="내 정보 수정" onClick={() => onEdit(me)} />
+        <Row label="최근 고민" value={(me.concerns || []).join(', ') || '없음'} onClick={() => onEdit(me)} />
+        <Toggle label="야자시 적용 (밤 11시대 출생)" on={!!me.yajasi} onChange={(v) => onUpdateProfile({ ...me, yajasi: v })} />
       </Group>
 
       <Group title="앱 설정">
@@ -84,6 +120,20 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
       <Group>
         <Row label="모든 정보 지우고 처음부터" danger onClick={() => setSheet('reset')} />
       </Group>
+
+      <Sheet open={!!toDelete} onClose={() => setToDelete(null)} label="사람 삭제">
+        {toDelete && (
+          <>
+            <h2 className="text-[19px] font-bold">{personLabel(toDelete)}님을 목록에서 지울까요?</h2>
+            <p className="mt-2 text-[14.5px] leading-[1.7] text-sub">저장된 생일 정보가 사라져요. 언제든 다시 추가할 수 있어요.</p>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setToDelete(null)} className="rounded-2xl bg-bg py-4 text-[16px] font-semibold">취소</button>
+              <button type="button" onClick={() => { onDeletePerson(toDelete.id); setToDelete(null); }}
+                className="rounded-2xl bg-[#E0455A] py-4 text-[16px] font-semibold text-white">지우기</button>
+            </div>
+          </>
+        )}
+      </Sheet>
 
       <Sheet open={sheet === 'terms'} onClose={() => setSheet(null)} label="사주 기초 용어">
         <h2 className="text-[19px] font-bold">사주 기초 용어</h2>
@@ -128,14 +178,14 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
         <h2 className="text-[19px] font-bold">띠링</h2>
         <p className="mt-1 text-[14px] text-sub">띠링! 오늘 내 띠의 운세가 도착했어요</p>
         <p className="mt-2 text-[14.5px] leading-[1.7] text-sub">
-          입력한 정보는 이 기기 안에만 저장되고 어디로도 보내지 않아요.
+          등록한 사람들의 정보는 이 기기 안에만 저장되고 어디로도 보내지 않아요.
         </p>
         <div className="mt-4"><FunNotice /></div>
       </Sheet>
 
       <Sheet open={sheet === 'reset'} onClose={() => setSheet(null)} label="정보 지우기">
         <h2 className="text-[19px] font-bold">모든 정보를 지울까요?</h2>
-        <p className="mt-2 text-[14.5px] leading-[1.7] text-sub">이 기기에 저장된 생일과 설정이 모두 지워지고 처음 화면으로 돌아가요.</p>
+        <p className="mt-2 text-[14.5px] leading-[1.7] text-sub">등록한 사람 전부와 설정이 지워지고 처음 화면으로 돌아가요.</p>
         <div className="mt-5 grid grid-cols-2 gap-2">
           <button type="button" onClick={() => setSheet(null)} className="rounded-2xl bg-bg py-4 text-[16px] font-semibold">취소</button>
           <button type="button" onClick={onReset} className="rounded-2xl bg-[#E0455A] py-4 text-[16px] font-semibold text-white">지우기</button>

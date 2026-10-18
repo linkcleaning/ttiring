@@ -87,20 +87,13 @@ export function TopBar({ title, onBack, right }) {
 /** 재미로 보는 운세 안내 */
 export function FunNotice({ compact = false }) {
   if (compact) {
-    return (
-      <p className="px-2 text-center text-[12px] leading-relaxed text-faint">
-        운세는 재미로만 봐 주세요. 점수가 내 하루를 정하지 않아요.
-      </p>
-    );
+    return <p className="px-2 text-center text-[12px] text-faint">재미로만 봐 주세요!</p>;
   }
   return (
     <aside className="rounded-[20px] bg-[#F6F1FF] px-5 py-4" aria-label="운세 이용 안내">
       <p className="text-[14px] font-bold text-[#5B3FB0]">재미로 봐 주세요</p>
       <p className="mt-1.5 text-[13.5px] leading-[1.7] text-[#4a4458]">
-        띠링은 명리·당사주·주역의 옛 계산법을 재미있게 풀어 본 놀이예요.
-        점수가 낮다고 걱정하거나 높다고 무리할 필요는 없어요.
-        중요한 결정은 운세가 아니라 내 판단과 가까운 사람들과의 대화로 내려 주세요.
-        하루를 기분 좋게 시작하는 작은 힌트 정도로만 봐 주면 충분해요.
+        점수가 낮다고 걱정하지 마세요. 중요한 결정은 내 판단으로 내려 주세요.
       </p>
     </aside>
   );

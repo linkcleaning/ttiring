@@ -2,8 +2,8 @@
 // - 페이지(HTML): 네트워크 우선 → 실패 시 캐시 (오프라인에서도 열림)
 // - JS·CSS·이미지·폰트: 캐시 우선 + 백그라운드 갱신
 // 배포할 때마다 VERSION을 올리면 이전 캐시가 정리됩니다.
-const VERSION = 'ttiring-v1';
-const PRECACHE = ['/', '/index.html', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/favicon.svg'];
+const VERSION = 'ttiring-v6';
+const PRECACHE = ['/', '/index.html', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/icons/favicon.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(VERSION).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));

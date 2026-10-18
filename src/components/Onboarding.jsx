@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react';
 import { ChevronRight, Sparkles } from 'lucide-react';
 import { ANIMALS, HOURS, lunarToSolar, manseryeok, natalChart } from '../lib/saju.js';
 import { CITIES } from '../lib/astro.js';
-import { CONCERNS, STEM_COLOR } from '../lib/fortune.js';
+import { CONCERNS, CONCERN_GROUPS, STEM_COLOR } from '../lib/fortune.js';
+import { RELATIONS, newId } from '../lib/people.js';
 import { ilju } from '../lib/personality.js';
+import { funProfile } from '../lib/profileText.js';
 import ZodiacAvatar from './ZodiacAvatar.jsx';
 import SlotBoard from './SlotBoard.jsx';
 import { FunNotice, TopBar } from './ui.jsx';
@@ -12,7 +14,7 @@ const thisYear = new Date().getFullYear();
 const YEARS = Array.from({ length: thisYear - 1920 + 1 }, (_, i) => thisYear - i);
 const range = (n) => Array.from({ length: n }, (_, i) => i + 1);
 const pad = (n) => String(n).padStart(2, '0');
-const EMPTY = { name: '', gender: '', calendar: 'solar', year: 1990, month: 1, day: 1, leap: false, time: '', unknownTime: false, city: '', concerns: [] };
+const EMPTY = { name: '', relation: '나', gender: '', calendar: 'solar', year: 1990, month: 1, day: 1, leap: false, time: '', unknownTime: false, city: '', concerns: [] };
 const QUESTIONS = ['오늘 나의 총운은?', '이번 달 재물운은 언제 좋아?', '나는 어떤 사람이야?', '조심해야 할 날은?', '오늘 행운의 컬러는?', '나의 대운 흐름은?'];
 
 const selectCls = 'w-full appearance-none rounded-xl bg-bg px-3 py-3.5 text-center text-[17px] font-medium focus:outline-none focus:ring-2 focus:ring-ink';
@@ -25,7 +27,9 @@ function timeLabel(p) {
 
 export function toProfile(f) {
   const p = {
-    name: f.name.trim(),
+    id: f.id || newId(),
+    relation: f.relation || '나',
+    name: (f.name || '').trim(),
     gender: f.gender,
     calendar: f.calendar,
     year: f.year,
@@ -54,11 +58,13 @@ function solarNote(f) {
   }
 }
 
-export default function Onboarding({ initial, onDone, onCancel, soundOn }) {
-  const [step, setStep] = useState(initial ? 0 : -1);
+export default function Onboarding({ initial, onDone, onCancel, soundOn, mode = 'first' }) {
+  const isAdd = mode === 'add';
+  const isEdit = mode === 'edit';
+  const [step, setStep] = useState(initial || isAdd ? 0 : -1);
   const [f, setF] = useState(() => (initial
     ? { ...EMPTY, ...initial, unknownTime: initial.hour === null || !initial.time }
-    : EMPTY));
+    : { ...EMPTY, ...(isAdd ? { relation: '가족', id: newId() } : {}) }));
   const [error, setError] = useState('');
   const [runId, setRunId] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -71,7 +77,7 @@ export default function Onboarding({ initial, onDone, onCancel, soundOn }) {
     f.gender !== '',
     true,
     f.unknownTime || /^\d{2}:\d{2}$/.test(f.time),
-    f.concerns.length > 0,
+    isAdd || f.concerns.length > 0,
     true,
   ][step];
 
@@ -97,7 +103,7 @@ export default function Onboarding({ initial, onDone, onCancel, soundOn }) {
     window.scrollTo(0, 0);
   };
   const back = () => {
-    if (step <= 0) return initial ? onCancel?.() : setStep(-1);
+    if (step <= 0) return initial || isAdd ? onCancel?.() : setStep(-1);
     setStep((s) => s - 1);
   };
 
@@ -112,7 +118,7 @@ export default function Onboarding({ initial, onDone, onCancel, soundOn }) {
                 title={`${ANIMALS[b]} 캐릭터`} />
             ))}
           </div>
-          <img src="/icons/favicon.svg" alt="" className="mt-9 h-[84px] w-[84px] rounded-[24px] shadow-[0_8px_24px_rgba(150,90,200,.25)]" />
+          <img src="/icons/icon-192.png" alt="" width="84" height="84" className="mt-9 h-[84px] w-[84px] rounded-[24px] shadow-[0_8px_24px_rgba(150,90,200,.25)]" />
           <h1 className="mt-4 text-[46px] font-extrabold leading-none tracking-[-0.05em]">띠링</h1>
           <p className="mt-3 text-[16px] text-sub">띠링! 오늘 내 띠의 운세가 도착했어요</p>
         </div>
@@ -133,27 +139,92 @@ export default function Onboarding({ initial, onDone, onCancel, soundOn }) {
   // ── 사주 공개 ──
   if (step === 5 && manse) {
     const p = ilju(manse.pillars.day);
+    const fp = funProfile(manse);
     const y = manse.pillars.year;
     return (
       <div className="mx-auto min-h-[100dvh] max-w-[440px] px-4 pb-10">
-        <TopBar title="나의 사주" />
-        <p className="mt-2 text-center text-[15px] text-sub">{profile.name ? `반가워요, ${profile.name}님!` : '반가워요!'}</p>
+        <TopBar title={isAdd ? `${profile.name || '이 사람'}님의 사주` : '나의 사주'} onBack={isAdd ? onCancel : undefined} />
+        <p className="mt-2 text-center text-[15px] text-sub">
+          {isAdd
+            ? `${f.relation} ${profile.name || ''}님의 여덟 글자예요`
+            : (profile.name ? `반가워요, ${profile.name}님!` : '반가워요!')}
+        </p>
         <div className="mt-4">
           <SlotBoard pillars={manse.pillars} runId={runId} soundOn={soundOn} onDone={() => setRevealed(true)} />
         </div>
         {revealed && (
-          <div className="reveal mt-6 text-center">
-            <ZodiacAvatar branch={y.branch} stem={y.stem} size={104} mood={5} className="bob mx-auto" title={`${ANIMALS[y.branch]}띠`} />
-            <p className="mt-3 text-[13px] text-sub">{STEM_COLOR[y.stem]} {ANIMALS[y.branch]}띠, 일주는</p>
-            <h2 className="mt-1 text-[24px] font-extrabold">{p.name} · {p.label}</h2>
-            <p className="mt-3 text-[18px] font-bold">{p.title}</p>
-            <p className="mt-3 rounded-2xl bg-card px-5 py-4 text-left text-[15.5px] leading-[1.75] text-[#3a3a42]">
+          <div className="reveal mt-6">
+            <div className="text-center">
+              <ZodiacAvatar branch={y.branch} stem={y.stem} size={104} mood={5} className="bob mx-auto" title={`${ANIMALS[y.branch]}띠`} />
+              <p className="mt-3 text-[13px] text-sub">{STEM_COLOR[y.stem]} {ANIMALS[y.branch]}띠, 일주는</p>
+              <h2 className="mt-1 text-[24px] font-extrabold">{p.name} · {p.label}</h2>
+              <p className="mt-1.5 text-[13.5px] text-[#5B3FB0]">{fp.catchphrase}</p>
+              <p className="mt-2.5 text-[18px] font-bold">{p.title}</p>
+            </div>
+
+            <p className="mt-3 rounded-2xl bg-card px-5 py-4 text-[15.5px] leading-[1.75] text-[#3a3a42]">
               {p.desc} {p.inner}
             </p>
-            <div className="mt-5 text-left"><FunNotice /></div>
+
+            <div className="mt-4 rounded-2xl bg-card px-5 py-4">
+              <p className="text-[12px] text-sub">이런 말 자주 듣죠?</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {fp.heard.map((h) => (
+                  <span key={h} className="rounded-full bg-[#FFF6E5] px-3 py-1.5 text-[13.5px] font-medium text-[#B7791F]">“{h}”</span>
+                ))}
+              </div>
+              <dl className="mt-4 space-y-3">
+                {[
+                  ['💘', '연애할 때', fp.love],
+                  ['💼', '어울리는 일', fp.job],
+                  ['😮‍💨', '힘들 때는', fp.stress],
+                  ['🔋', `에너지 타입 · ${fp.stage.name}`, fp.stage.desc],
+                ].map(([emoji, k, v]) => (
+                  <div key={k} className="flex gap-3 rounded-2xl bg-bg px-4 py-3">
+                    <span className="text-[17px] leading-none" aria-hidden="true">{emoji}</span>
+                    <div className="min-w-0">
+                      <dt className="text-[12.5px] font-semibold text-sub">{k}</dt>
+                      <dd className="mt-0.5 text-[14.5px] leading-[1.65]">{v}</dd>
+                    </div>
+                  </div>
+                ))}
+              </dl>
+            </div>
+
+            <div className="mt-3 rounded-2xl bg-card px-5 py-4">
+              <p className="text-[12px] text-sub">가장 강한 힘</p>
+              <p className="mt-1 text-[15px] font-bold text-[#2563EB]">{fp.topGod.key} — {fp.topGod.title}</p>
+              <p className="mt-1 text-[14.5px] leading-[1.65] text-[#3a3a42]">{fp.topGod.desc}</p>
+              <p className="mt-3 text-[12px] text-sub">타고난 기운</p>
+              <p className="mt-1 text-[14.5px] leading-[1.65] text-[#3a3a42]">
+                <b>{fp.element.topName}({fp.element.topHanja})</b> 기운이 가장 강해요. {fp.element.topDesc}
+              </p>
+              {fp.stars.length > 0 && (
+                <>
+                  <p className="mt-3 text-[12px] text-sub">내 사주에 든 특별한 별</p>
+                  <ul className="mt-1.5 space-y-2">
+                    {fp.stars.slice(0, 3).map((st) => (
+                      <li key={st.title} className="flex gap-2.5 rounded-xl bg-bg px-3.5 py-2.5">
+                        <span className="text-[16px] leading-none" aria-hidden="true">{st.emoji}</span>
+                        <p className="text-[14px] leading-[1.6]"><b>{st.title}</b> {st.desc}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <p className="mt-3 text-[12px] text-sub">잘 맞는 띠</p>
+              <p className="mt-1 text-[14.5px] leading-[1.65]">
+                <b className="text-[#2E8B57]">{fp.match.good.map((a) => `${a}띠`).join(', ')}</b>
+                <span className="text-sub"> · 조심할 띠 </span>
+                <b className="text-[#DC3B2F]">{fp.match.care.map((a) => `${a}띠`).join(', ')}</b>
+              </p>
+              <p className="mt-2.5 text-[12.5px] leading-relaxed text-faint">만세력 탭에서 더 자세히 볼 수 있어요.</p>
+            </div>
+
+            <div className="mt-4"><FunNotice /></div>
             <button type="button" onClick={() => onDone(profile)}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-ink py-[17px] text-[17px] font-bold text-white">
-              <Sparkles size={19} /> 오늘 운세 보러 가기
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-ink py-[17px] text-[17px] font-bold text-white">
+              <Sparkles size={19} /> {isAdd ? '이 사람 운세 보기' : '오늘 운세 보러 가기'}
             </button>
           </div>
         )}
@@ -163,7 +234,7 @@ export default function Onboarding({ initial, onDone, onCancel, soundOn }) {
 
   // ── 입력 단계 ──
   const titles = [
-    '이름과 성별을 알려 주세요',
+    isAdd ? '누구의 운세를 봐 드릴까요?' : '이름과 성별을 알려 주세요',
     '생년월일을 입력해 주세요',
     '태어난 시간을 입력해 주세요',
     '최근 가장 큰 고민을 골라 주세요',
@@ -172,25 +243,38 @@ export default function Onboarding({ initial, onDone, onCancel, soundOn }) {
 
   return (
     <div className="mx-auto flex min-h-[100dvh] max-w-[440px] flex-col bg-card px-4">
-      <TopBar title="사주 등록" onBack={back} />
+      <TopBar title={isAdd ? '사람 추가' : isEdit ? '내 정보 수정' : '사주 등록'} onBack={back} />
       <div className="-mx-4 h-1 bg-bg">
         <div className="h-full bg-ink transition-[width] duration-300" style={{ width: `${((step + 1) / 5) * 100}%` }} />
       </div>
 
       <div className="flex-1 pb-32 pt-8">
         <h2 className="text-[24px] font-bold leading-snug tracking-[-0.03em]">
-          {step === 3 && <span className="block">마지막으로,</span>}
+          {step === 3 && !isAdd && <span className="block">마지막으로,</span>}
           {titles[step]}
         </h2>
 
         {step === 0 && (
           <div className="mt-8 space-y-8">
             <label className="block">
-              <span className="text-[13px] text-sub">이름 (선택)</span>
+              <span className="text-[13px] text-sub">이름 {isAdd ? '' : '(선택)'}</span>
               <input type="text" value={f.name} maxLength={10} onChange={(e) => set({ name: e.target.value })}
-                placeholder="불리고 싶은 이름"
+                placeholder={isAdd ? '예) 아내, 민수' : '불리고 싶은 이름'}
                 className="mt-1 w-full border-b-2 border-line bg-transparent py-2.5 text-[22px] placeholder:text-faint focus:border-ink focus:outline-none" />
             </label>
+            {isAdd && (
+              <div>
+                <span className="text-[13px] text-sub">나와의 관계</span>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {RELATIONS.map((rel) => (
+                    <button key={rel} type="button" aria-pressed={f.relation === rel} onClick={() => set({ relation: rel })}
+                      className={`rounded-full border px-4 py-2.5 text-[15px] ${f.relation === rel ? 'border-ink bg-ink font-semibold text-white' : 'border-line'}`}>
+                      {rel}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div>
               <span className="text-[13px] text-sub">성별 (대운 방향 계산에 쓰여요)</span>
               <div className="mt-2 grid grid-cols-2 gap-2">
@@ -265,20 +349,29 @@ export default function Onboarding({ initial, onDone, onCancel, soundOn }) {
 
         {step === 3 && (
           <>
-            <p className="mt-2 text-[14px] text-sub">최대 3개까지 고를 수 있어요. 운세에 맞춤 조언으로 보여 드려요.</p>
-            <div className="mt-7 flex flex-wrap gap-2">
-              {CONCERNS.map(({ key }) => {
-                const on = f.concerns.includes(key);
-                const full = !on && f.concerns.length >= 3;
-                return (
-                  <button key={key} type="button" aria-pressed={on} disabled={full}
-                    onClick={() => set({ concerns: on ? f.concerns.filter((c) => c !== key) : [...f.concerns, key] })}
-                    className={`rounded-full border px-5 py-3 text-[16px] transition-colors
-                      ${on ? 'border-ink bg-ink font-semibold text-white' : 'border-line'} ${full ? 'opacity-40' : ''}`}>
-                    {key}
-                  </button>
-                );
-              })}
+            <p className="mt-2 text-[14px] text-sub">
+              최대 3개까지 고를 수 있어요. 운세에 맞춤 조언으로 보여 드려요.{isAdd && ' 몰라도 건너뛸 수 있어요.'}
+            </p>
+            <div className="mt-6 space-y-5">
+              {CONCERN_GROUPS.map((g) => (
+                <div key={g}>
+                  <p className="mb-2 text-[13px] font-semibold text-sub">{g}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {CONCERNS.filter((c) => c.group === g).map(({ key }) => {
+                      const on = f.concerns.includes(key);
+                      const full = !on && f.concerns.length >= 3;
+                      return (
+                        <button key={key} type="button" aria-pressed={on} disabled={full}
+                          onClick={() => set({ concerns: on ? f.concerns.filter((c) => c !== key) : [...f.concerns, key] })}
+                          className={`rounded-full border px-4 py-2.5 text-[15px] transition-colors
+                            ${on ? 'border-ink bg-ink font-semibold text-white' : 'border-line'} ${full ? 'opacity-40' : ''}`}>
+                          {key}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </>
         )}
@@ -286,12 +379,13 @@ export default function Onboarding({ initial, onDone, onCancel, soundOn }) {
         {step === 4 && (
           <dl className="mt-6">
             {[
+              ...(isAdd ? [['관계', f.relation, 0]] : []),
               ['이름', profile.name || '입력 안 함', 0],
               ['성별', f.gender === 'M' ? '남자' : '여자', 0],
               ['생년월일', `${f.year}.${pad(f.month)}.${pad(f.day)} (${f.calendar === 'lunar' ? `음력${f.leap ? ' 윤달' : ''}` : '양력'})`, 1],
               ['시간', timeLabel(f), 2],
               ['태어난 도시', f.city || '모름', 2],
-              ['고민', f.concerns.join(', '), 3],
+              ['고민', f.concerns.join(', ') || '선택 안 함', 3],
             ].map(([k, v, s]) => (
               <button key={k} type="button" onClick={() => setStep(s)}
                 className="flex w-full items-center justify-between border-b border-line py-5 text-left">
@@ -311,7 +405,7 @@ export default function Onboarding({ initial, onDone, onCancel, soundOn }) {
         )}
         <button type="button" onClick={next} disabled={!canNext}
           className="flex-1 rounded-2xl bg-ink py-4 text-[17px] font-semibold text-white disabled:bg-bg disabled:text-faint">
-          {step === 4 ? '내 사주 뽑기' : '다음'}
+          {step === 4 ? (isAdd ? '사주 뽑기' : '내 사주 뽑기') : step === 3 && isAdd && f.concerns.length === 0 ? '건너뛰기' : '다음'}
         </button>
       </div>
     </div>

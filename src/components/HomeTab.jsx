@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Briefcase, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Coins, Heart, HeartPulse, Lightbulb,
-  Share2, Sparkles, X,
+  PencilLine, Share2, Sparkles, X,
 } from 'lucide-react';
 import { computeFortune } from '../lib/saju.js';
 import { EVENT_INFO, buildReading, shareText } from '../lib/fortune.js';
@@ -10,6 +10,8 @@ import ZodiacAvatar, { moodOf } from './ZodiacAvatar.jsx';
 import DrawMachine from './DrawMachine.jsx';
 import Hexagram from './Hexagram.jsx';
 import { Card, FunNotice, Term } from './ui.jsx';
+import PersonBar from './PersonBar.jsx';
+import { personLabel } from '../lib/people.js';
 import { scoreTone } from './MonthCalendar.jsx';
 
 const CAT = {
@@ -72,7 +74,7 @@ function CategoryCard({ item, delay }) {
   );
 }
 
-export default function HomeTab({ profile, soundOn, drawnDate, onDrawn, dateOffset, setDateOffset, onOpenCalendar, toast }) {
+export default function HomeTab({ profile, soundOn, people, activeId, onSelectPerson, onAddPerson, onEditPerson, drawnDate, onDrawn, dateOffset, setDateOffset, onOpenCalendar, toast }) {
   const date = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + dateOffset);
@@ -87,6 +89,7 @@ export default function HomeTab({ profile, soundOn, drawnDate, onDrawn, dateOffs
   const score = useCountUp(r.scores.total);
   const tone = scoreTone(r.scores.total);
   const name = profile.name?.trim();
+  const isMe = profile.id === 'me';
   const items = ORDER.map((k) => reading.items.find((i) => i.key === k));
   const ev = reading.event && EVENT_INFO[reading.event];
 
@@ -109,14 +112,24 @@ export default function HomeTab({ profile, soundOn, drawnDate, onDrawn, dateOffs
 
   return (
     <div className="pb-6">
+      <div className="mt-1">
+        <PersonBar people={people} activeId={activeId} onSelect={onSelectPerson} onAdd={onAddPerson} />
+      </div>
+
       {/* 인사 */}
-      <div className="mt-1 flex items-center gap-3">
+      <div className="mt-3 flex items-center gap-3">
         <ZodiacAvatar branch={r.pillars.year.branch} stem={r.pillars.year.stem} size={54}
           mood={needDraw ? 3 : moodOf(r.scores.total)} className={spinning ? 'wiggle' : 'bob'} title={`${reading.zodiacName}띠`} />
         <p className="min-w-0 flex-1 text-[15px] leading-snug">
           <span className="text-sub">{reading.ilju} </span>
-          <b>{name ? `${name}님` : `${reading.zodiacName}띠님`}</b> 반가워요.
+          {isMe ? (
+            <><b>{name ? `${name}님` : `${reading.zodiacName}띠님`}</b> 반가워요.</>
+          ) : (
+            <><b>{personLabel(profile)}님</b>의 운세예요. <span className="text-sub">({profile.relation})</span></>
+          )}
         </p>
+        <button type="button" onClick={onEditPerson} aria-label="정보 수정"
+          className="rounded-xl border border-line bg-card p-2.5 text-sub"><PencilLine size={18} /></button>
         <button type="button" onClick={onOpenCalendar} aria-label="운세 달력"
           className="rounded-xl border border-line bg-card p-2.5 text-ink">
           <CalendarDays size={20} />
@@ -143,7 +156,7 @@ export default function HomeTab({ profile, soundOn, drawnDate, onDrawn, dateOffs
       </div>
 
       {(needDraw || spinning) ? (
-        <Card title="오늘의 운세 뽑기" right={<span className="text-[12px] text-sub">일진·당사주·주역</span>}>
+        <Card title={isMe ? '오늘의 운세 뽑기' : `${personLabel(profile)}님 운세 뽑기`} right={<span className="text-[12px] text-sub">일진·당사주·주역</span>}>
           <DrawMachine result={r} runId={runId} soundOn={soundOn}
             onDone={() => { setTimeout(() => { setSpinning(false); onDrawn(); }, 500); }} />
           <button type="button" onClick={draw} disabled={spinning}

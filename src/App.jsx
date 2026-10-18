@@ -6,10 +6,10 @@ import ManseTab from './components/ManseTab.jsx';
 import MonthCalendar from './components/MonthCalendar.jsx';
 import SettingsTab from './components/SettingsTab.jsx';
 import { TermContext, TermSheet, TopBar } from './components/ui.jsx';
-import { fourPillars, lunarToSolar } from './lib/saju.js';
+import { migrateProfile, personLabel, personYear } from './lib/people.js';
 import { setVibrate } from './lib/sound.js';
 
-const KEYS = { profile: 'paljja.profile.v2', settings: 'paljja.settings', drawn: 'paljja.drawn' };
+const KEYS = { people: 'ttiring.people.v1', active: 'ttiring.active', profile: 'paljja.profile.v2', settings: 'paljja.settings', drawn: 'paljja.drawn' };
 const load = (k, fallback) => {
   try {
     const v = localStorage.getItem(k);
@@ -32,17 +32,20 @@ const TABS = [
   { key: 'settings', label: '설정', icon: Settings, title: '설정' },
 ];
 
-function yearPillar(p) {
-  const s = p.calendar === 'lunar' ? lunarToSolar(p.year, p.month, p.day, p.leap) : p;
-  return fourPillars(s.year, s.month, s.day, null).year;
-}
-
 export default function App() {
-  const [profile, setProfile] = useState(() => load(KEYS.profile, null));
+  const [people, setPeople] = useState(() => {
+    const list = load(KEYS.people, null);
+    if (list?.length) return list;
+    return migrateProfile(load(KEYS.profile, null)); // 예전 버전에서 넘어온 한 사람
+  });
+  const [activeId, setActiveId] = useState(() => load(KEYS.active, 'me'));
   const [settings, setSettings] = useState(() => ({ sound: true, vibrate: true, bigText: false, ...load(KEYS.settings, {}) }));
-  const [drawnDate, setDrawnDate] = useState(() => load(KEYS.drawn, ''));
+  const [drawn, setDrawn] = useState(() => {
+    const old = load(KEYS.drawn, '');
+    return typeof old === 'string' ? (old ? { me: old } : {}) : old;
+  });
   const [tab, setTab] = useState('home');
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(null); // null | { mode, person }
   const [dateOffset, setDateOffset] = useState(0);
   const [term, setTerm] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
@@ -65,40 +68,64 @@ export default function App() {
   }, []);
   const go = (t) => { setTab(t); window.scrollTo(0, 0); };
 
+  const savePeople = (list) => { setPeople(list); save(KEYS.people, list); };
+  const selectPerson = (id) => { setActiveId(id); save(KEYS.active, id); setDateOffset(0); window.scrollTo(0, 0); };
+
   const finishOnboarding = (p) => {
-    save(KEYS.profile, p);
-    setProfile(p);
-    setEditing(false);
-    setDateOffset(0);
+    const mode = editing?.mode ?? 'first';
+    if (mode === 'first') {
+      const me = { ...p, id: 'me', relation: '나' };
+      savePeople([me]);
+      selectPerson('me');
+    } else if (mode === 'add') {
+      savePeople([...people, p]);
+      selectPerson(p.id);
+    } else {
+      savePeople(people.map((x) => (x.id === p.id ? { ...p, id: x.id, relation: x.relation } : x)));
+      selectPerson(p.id);
+    }
+    setEditing(null);
     go('home');
   };
+
+  const profile = people.find((x) => x.id === activeId) || people[0];
 
   if (!profile || editing) {
     return (
       <TermContext.Provider value={setTerm}>
-        <Onboarding initial={editing ? profile : null} onDone={finishOnboarding} onCancel={() => setEditing(false)} soundOn={settings.sound} />
+        <Onboarding mode={editing?.mode ?? 'first'} initial={editing?.person ?? null}
+          onDone={finishOnboarding} onCancel={() => setEditing(null)} soundOn={settings.sound} />
       </TermContext.Provider>
     );
   }
+
+  const isMe = profile.id === 'me';
 
   const current = TABS.find((t) => t.key === tab);
 
   return (
     <TermContext.Provider value={setTerm}>
       <div className="mx-auto min-h-screen max-w-[440px] px-4 pb-[calc(84px+env(safe-area-inset-bottom))]">
-        <TopBar title={current.title} />
+        <TopBar title={isMe ? current.title : `${personLabel(profile)}님의 ${current.key === 'home' ? '운세' : current.title.replace('나의 ', '')}`} />
 
         {tab === 'home' && (
-          <HomeTab profile={profile} soundOn={settings.sound}
-            drawnDate={drawnDate}
-            onDrawn={() => { const d = new Date(); const k = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; setDrawnDate(k); save(KEYS.drawn, k); }}
+          <HomeTab key={profile.id} profile={profile} soundOn={settings.sound}
+            people={people} activeId={profile.id} onSelectPerson={selectPerson}
+            onAddPerson={() => setEditing({ mode: 'add', person: null })}
+            onEditPerson={() => setEditing({ mode: profile.id === 'me' ? 'edit' : 'add', person: profile })}
+            drawnDate={drawn[profile.id] || ''}
+            onDrawn={() => {
+              const d = new Date();
+              const next = { ...drawn, [profile.id]: `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}` };
+              setDrawn(next); save(KEYS.drawn, next);
+            }}
             dateOffset={dateOffset} setDateOffset={setDateOffset}
             onOpenCalendar={() => go('calendar')} toast={toast} />
         )}
-        {tab === 'manse' && <ManseTab profile={profile} />}
+        {tab === 'manse' && <ManseTab key={profile.id} profile={profile} />}
         {tab === 'calendar' && (
           <div className="pb-6 pt-1">
-            <MonthCalendar input={profile} zodiac={yearPillar(profile)}
+            <MonthCalendar key={profile.id} input={profile} zodiac={personYear(profile)}
               onOpenDay={(off) => { setDateOffset(off); go('home'); }} />
             <p className="mt-3 px-1 text-[12px] leading-relaxed text-faint">
               날짜를 누르면 그날의 점수와 한마디가 나와요. 아이콘은 특별한 기운이 드는 날이에요. 낮은 점수의 날도 그냥 조금 조심하자는 뜻일 뿐, 약속이나 일정을 운세 때문에 바꿀 필요는 없어요.
@@ -107,9 +134,21 @@ export default function App() {
         )}
         {tab === 'settings' && (
           <SettingsTab profile={profile} settings={settings} setSettings={setSettings}
-            onEdit={() => setEditing(true)} openTerm={setTerm}
-            onUpdateProfile={(p) => { const next = toProfile({ ...p, unknownTime: !p.time }); save(KEYS.profile, next); setProfile(next); }}
-            onReset={() => { Object.values(KEYS).forEach((k) => save(k, null)); setProfile(null); setDrawnDate(''); setTab('home'); }} />
+            people={people} activeId={profile.id} openTerm={setTerm}
+            onSelectPerson={selectPerson}
+            onEdit={(person) => setEditing({ mode: person.id === 'me' ? 'edit' : 'add', person })}
+            onAddPerson={() => setEditing({ mode: 'add', person: null })}
+            onDeletePerson={(id) => {
+              const list = people.filter((x) => x.id !== id);
+              savePeople(list);
+              if (activeId === id) selectPerson(list[0]?.id ?? 'me');
+              toast('삭제했어요');
+            }}
+            onUpdateProfile={(p) => {
+              const next = toProfile({ ...p, unknownTime: !p.time });
+              savePeople(people.map((x) => (x.id === p.id ? { ...next, id: x.id, relation: x.relation } : x)));
+            }}
+            onReset={() => { Object.values(KEYS).forEach((k) => save(k, null)); setPeople([]); setDrawn({}); setTab('home'); }} />
         )}
       </div>
 
