@@ -2,7 +2,8 @@
 // - 페이지(HTML): 네트워크 우선 → 실패 시 캐시 (오프라인에서도 열림)
 // - JS·CSS·이미지·폰트: 캐시 우선 + 백그라운드 갱신
 // 배포할 때마다 VERSION을 올리면 이전 캐시가 정리됩니다.
-const VERSION = 'ttiring-v7';
+const VERSION = 'ttiring-v8';
+const NOTIFY_CACHE = 'ttiring-notify'; // 버전을 올려도 지우지 않는 알림 설정 보관함
 const PRECACHE = ['/', '/index.html', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/icons/favicon.png'];
 
 self.addEventListener('install', (event) => {
@@ -12,7 +13,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== VERSION && k !== NOTIFY_CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
@@ -57,12 +58,35 @@ self.addEventListener('fetch', (event) => {
 });
 
 // ── 알림 ─────────────────────────────────────────────────────
-// 앱이 설정한 알림 시각을 보관해 두었다가, 주기적 동기화가 깨울 때 알림을 띄웁니다.
-let notifyConfig = { on: false, hour: 8, minute: 0 };
-let lastNotified = '';
+// 서비스 워커는 할 일이 없으면 브라우저가 수시로 꺼 버립니다. 그래서 알림 설정을
+// 변수에 두면 다시 깨어났을 때 사라져 알림이 울리지 않습니다. 캐시에 적어 둡니다.
+const NOTIFY_KEY = '/__ttiring-notify__';
+const NOTIFY_DEFAULT = { on: false, hour: 8, minute: 0, last: '' };
+
+async function readNotify() {
+  try {
+    const c = await caches.open(NOTIFY_CACHE);
+    const res = await c.match(NOTIFY_KEY);
+    return res ? { ...NOTIFY_DEFAULT, ...(await res.json()) } : { ...NOTIFY_DEFAULT };
+  } catch {
+    return { ...NOTIFY_DEFAULT };
+  }
+}
+
+async function writeNotify(v) {
+  try {
+    const c = await caches.open(NOTIFY_CACHE);
+    await c.put(NOTIFY_KEY, new Response(JSON.stringify(v), { headers: { 'content-type': 'application/json' } }));
+  } catch { /* 저장 불가 */ }
+}
 
 self.addEventListener('message', (event) => {
-  if (event.data?.type === 'notify-config') notifyConfig = event.data.config;
+  const d = event.data;
+  if (d?.type !== 'notify-config') return;
+  event.waitUntil((async () => {
+    const cur = await readNotify();
+    await writeNotify({ ...cur, ...d.config });
+  })());
 });
 
 const todayKey = () => {
@@ -71,13 +95,15 @@ const todayKey = () => {
 };
 
 async function maybeNotify() {
-  if (!notifyConfig.on) return;
+  const cfg = await readNotify();
+  if (!cfg.on) return;
   const now = new Date();
   const due = new Date();
-  due.setHours(notifyConfig.hour, notifyConfig.minute, 0, 0);
+  due.setHours(cfg.hour, cfg.minute, 0, 0);
   if (now < due) return;
-  if (lastNotified === todayKey()) return;
-  lastNotified = todayKey();
+  const key = todayKey();
+  if (cfg.last === key) return; // 앱에서 이미 띄웠거나 오늘 보낸 적 있으면 건너뜀
+  await writeNotify({ ...cfg, last: key });
   await self.registration.showNotification('띠링! 오늘의 운세가 도착했어요', {
     body: '내 띠 캐릭터가 오늘 점수를 기다리고 있어요.',
     icon: '/icons/icon-192.png',

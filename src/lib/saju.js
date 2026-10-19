@@ -130,12 +130,12 @@ export const cityLon = (name) => CITIES.find(([n]) => n === name)?.[1];
 
 /**
  * 출생 정보 → 원국 (진태양시 보정, 자시 처리 포함). 같은 입력은 캐시.
- * input: { calendar, year, month, day, leap, time('HH:MM'|''), city, yajasi, hour(예전 저장값) }
+ * input: { calendar, year, month, day, leap, time('HH:MM'|''), city, lon(직접 넣은 경도), yajasi, hour(예전 저장값) }
  */
 const natalCache = new Map();
 export function natalChart(input) {
   const key = JSON.stringify([input.calendar, input.year, input.month, input.day, !!input.leap, input.time || '',
-    input.hour ?? null, input.city || '', !!input.yajasi]);
+    input.hour ?? null, input.city || '', input.lon ?? null, !!input.yajasi]);
   if (natalCache.has(key)) return natalCache.get(key);
 
   let solar;
@@ -152,7 +152,8 @@ export function natalChart(input) {
   }
 
   const hasTime = /^\d{1,2}:\d{2}$/.test(input.time || '');
-  const lon = cityLon(input.city);
+  // 목록에 없는 곳이면 경도를 직접 넣을 수 있어요
+  const lon = Number.isFinite(input.lon) ? input.lon : cityLon(input.city);
   const mo = birthMoment(solar.year, solar.month, solar.day, hasTime ? input.time : '12:00', lon);
   let hour = null;
   let shift = 0;

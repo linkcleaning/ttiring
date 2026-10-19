@@ -150,7 +150,7 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
         <Row label="사주 기초 용어 보기" onClick={() => setSheet('terms')} />
         <Row label="운세는 어떻게 계산하나요?" onClick={() => setSheet('how')} />
         <Row label="운세를 볼 때 기억해 주세요" onClick={() => setSheet('fun')} />
-        <Row label="앱 정보" value="v5.0" onClick={() => setSheet('about')} />
+        <Row label="앱 정보" value="v1.0.0" onClick={() => setSheet('about')} />
       </Group>
 
       <Group>

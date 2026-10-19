@@ -75,7 +75,10 @@ export async function catchUp(body = '내 띠 캐릭터가 오늘 점수를 기�
   if (now < due) return false;
   if (read(LAST, '') === todayKey()) return false;
   const ok = await showNotification(body);
-  if (ok) write(LAST, todayKey());
+  if (ok) {
+    write(LAST, todayKey());
+    syncConfigToSW(); // 서비스 워커가 같은 날 또 띄우지 않도록 알려 줌
+  }
   return ok;
 }
 
@@ -93,11 +96,14 @@ export async function registerPeriodicSync() {
   }
 }
 
-/** 서비스 워커가 알림 시각을 알 수 있게 전달 */
+/** 서비스 워커가 알림 시각과 "오늘 보낸 날"을 알 수 있게 전달 */
 export async function syncConfigToSW() {
   try {
-    const reg = await navigator.serviceWorker.getRegistration();
-    reg?.active?.postMessage({ type: 'notify-config', config: loadNotify() });
+    if (!('serviceWorker' in navigator)) return;
+    if (!(await navigator.serviceWorker.getRegistration())) return; // 아직 등록 전(개발 모드 등)
+    const reg = await navigator.serviceWorker.ready;
+    const sw = reg.active || navigator.serviceWorker.controller;
+    sw?.postMessage({ type: 'notify-config', config: { ...loadNotify(), last: read(LAST, '') } });
   } catch { /* 무시 */ }
 }
 

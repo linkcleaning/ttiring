@@ -1,20 +1,20 @@
 import { useMemo, useState } from 'react';
 import { ChevronRight, Sparkles } from 'lucide-react';
 import { ANIMALS, HOURS, lunarToSolar, manseryeok, natalChart } from '../lib/saju.js';
-import { CITIES } from '../lib/astro.js';
+import { CITY_GROUPS } from '../lib/astro.js';
 import { CONCERNS, CONCERN_GROUPS, STEM_COLOR } from '../lib/fortune.js';
 import { RELATIONS, newId } from '../lib/people.js';
 import { ilju } from '../lib/personality.js';
 import { funProfile } from '../lib/profileText.js';
 import ZodiacAvatar from './ZodiacAvatar.jsx';
 import SlotBoard from './SlotBoard.jsx';
-import { FunNotice, TopBar } from './ui.jsx';
+import { FunNotice, Sheet, TopBar } from './ui.jsx';
 
 const thisYear = new Date().getFullYear();
 const YEARS = Array.from({ length: thisYear - 1920 + 1 }, (_, i) => thisYear - i);
 const range = (n) => Array.from({ length: n }, (_, i) => i + 1);
 const pad = (n) => String(n).padStart(2, '0');
-const EMPTY = { name: '', relation: '나', gender: '', calendar: 'solar', year: 1990, month: 1, day: 1, leap: false, time: '', unknownTime: false, city: '', concerns: [] };
+const EMPTY = { name: '', relation: '나', gender: '', calendar: 'solar', year: 1990, month: 1, day: 1, leap: false, time: '', unknownTime: false, city: '', lon: undefined, concerns: [] };
 const QUESTIONS = ['오늘 나의 총운은?', '이번 달 재물운은 언제 좋아?', '나는 어떤 사람이야?', '조심해야 할 날은?', '오늘 행운의 컬러는?', '나의 대운 흐름은?'];
 
 const selectCls = 'w-full appearance-none rounded-xl bg-bg px-3 py-3.5 text-center text-[17px] font-medium focus:outline-none focus:ring-2 focus:ring-ink';
@@ -38,11 +38,103 @@ export function toProfile(f) {
     leap: f.calendar === 'lunar' && f.leap,
     time: f.unknownTime ? '' : f.time,
     city: f.city || '',
+    ...(Number.isFinite(f.lon) ? { lon: f.lon } : {}),
     yajasi: !!f.yajasi,
     concerns: f.concerns,
   };
   try { p.hour = natalChart(p).hour; } catch { p.hour = null; }
   return p;
+}
+
+/** 태어난 곳 고르기: 전국 시·군 검색 + 목록에 없으면 경도 직접 입력 */
+function CityPicker({ city, lon, onPick }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const [manual, setManual] = useState('');
+  const [manualLon, setManualLon] = useState('');
+  const [err, setErr] = useState('');
+
+  const groups = useMemo(() => {
+    const s = q.trim();
+    if (!s) return CITY_GROUPS;
+    return CITY_GROUPS
+      .map(([g, list]) => [g, list.filter(([n]) => n.includes(s))])
+      .filter(([, list]) => list.length);
+  }, [q]);
+  const found = groups.reduce((a, [, l]) => a + l.length, 0);
+
+  const choose = (name) => { onPick({ city: name, lon: undefined }); setOpen(false); setQ(''); };
+  const manualName = manual || q; // 검색한 이름을 그대로 가져다 써요
+  const chooseManual = () => {
+    const v = Number(manualLon);
+    if (!manualName.trim()) { setErr('지역 이름을 적어 주세요.'); return; }
+    if (!Number.isFinite(v) || v < 120 || v > 135) { setErr('경도는 120~135 사이 숫자로 넣어 주세요. (예: 126.98)'); return; }
+    onPick({ city: manualName.trim(), lon: v });
+    setOpen(false); setQ(''); setManual(''); setManualLon(''); setErr('');
+  };
+
+  const label = city || '모름 / 해외 (보정 안 함)';
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}
+        className="mt-1 flex w-full items-center justify-between border-b-2 border-line py-2.5 text-left text-[20px] focus:border-ink focus:outline-none">
+        <span className={city ? 'text-ink' : 'text-faint'}>
+          {label}{Number.isFinite(lon) && city ? <span className="ml-2 text-[13px] text-faint">경도 {lon}°</span> : null}
+        </span>
+        <ChevronRight size={20} className="shrink-0 text-faint" />
+      </button>
+
+      <Sheet open={open} onClose={() => setOpen(false)} label="태어난 곳 고르기">
+        <h2 className="text-[19px] font-bold">태어난 곳</h2>
+        <p className="mt-1 text-[13px] leading-relaxed text-sub">
+          읍·면·동은 속한 시·군을 고르면 돼요. 같은 시·군 안에서는 시주가 달라지지 않아요.
+        </p>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="지역 이름 검색 (예: 고흥, 양평)"
+          className="mt-3 w-full rounded-2xl bg-bg px-4 py-3 text-[16px] focus:outline-none focus:ring-2 focus:ring-ink" />
+
+        <button type="button" onClick={() => choose('')}
+          className={`mt-3 w-full rounded-2xl border px-4 py-3.5 text-left text-[15.5px] ${!city ? 'border-ink bg-ink text-white' : 'border-line'}`}>
+          모름 / 해외 <span className={`text-[13px] ${!city ? 'text-white/70' : 'text-faint'}`}>· 한국 평균 경도로 계산</span>
+        </button>
+
+        {found === 0 ? (
+          <p className="mt-5 rounded-2xl bg-bg px-4 py-4 text-[14px] leading-relaxed text-sub">
+            “{q}”은(는) 목록에 없어요. 아래에서 직접 넣어 주세요.
+          </p>
+        ) : groups.map(([g, list]) => (
+          <div key={g} className="mt-5">
+            <p className="text-[12px] font-semibold text-faint">{g}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {list.map(([n]) => (
+                <button key={n} type="button" onClick={() => choose(n)}
+                  className={`rounded-full border px-3.5 py-2 text-[14.5px] ${city === n ? 'border-ink bg-ink text-white' : 'border-line bg-card'}`}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <div className="mt-6 rounded-2xl border border-line p-4">
+          <p className="text-[14px] font-semibold">목록에 없는 곳 직접 넣기</p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-sub">
+            해외나 북한처럼 목록에 없는 곳이면 이름과 경도를 넣어 주세요. 지도 앱에서 그 지역을 길게 누르면 경도가 나와요
+            (뒤의 숫자, 예: 서울은 126.98).
+          </p>
+          <input value={manualName} onChange={(e) => { setManual(e.target.value); setErr(''); }} placeholder="지역 이름 (예: 개성)"
+            className="mt-3 w-full rounded-xl bg-bg px-3.5 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-ink" />
+          <input value={manualLon} onChange={(e) => { setManualLon(e.target.value); setErr(''); }} inputMode="decimal" placeholder="경도 (예: 126.55)"
+            className="mt-2 w-full rounded-xl bg-bg px-3.5 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-ink" />
+          {err && <p className="mt-2 text-[13px] text-point">{err}</p>}
+          <button type="button" onClick={chooseManual}
+            className="mt-3 w-full rounded-xl bg-ink py-3 text-[15px] font-semibold text-white">이 지역으로 하기</button>
+        </div>
+
+        <button type="button" onClick={() => setOpen(false)}
+          className="mt-4 w-full rounded-2xl bg-bg py-3.5 text-[15.5px] font-semibold">닫기</button>
+      </Sheet>
+    </>
+  );
 }
 
 /** 진태양시 안내 문구 */
@@ -326,23 +418,21 @@ export default function Onboarding({ initial, onDone, onCancel, soundOn, mode = 
               <input type="time" value={f.time} disabled={f.unknownTime} onChange={(e) => set({ time: e.target.value })}
                 className="mt-1 w-full border-b-2 border-line bg-transparent py-2.5 text-[24px] focus:border-ink focus:outline-none disabled:text-faint" />
             </label>
-            <label className="mt-8 block">
-              <span className="text-[13px] text-sub">태어난 도시 (시간 보정에 쓰여요)</span>
-              <select value={f.city} onChange={(e) => set({ city: e.target.value })}
-                className="mt-1 w-full border-b-2 border-line bg-transparent py-2.5 text-[20px] focus:border-ink focus:outline-none">
-                <option value="">모름 / 해외</option>
-                {CITIES.map(([n]) => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </label>
+            <div className="mt-8">
+              <span className="text-[13px] text-sub">태어난 곳 (시간 보정에 쓰여요)</span>
+              <CityPicker city={f.city} lon={f.lon} onPick={(v) => set(v)} />
+            </div>
             <p className="mt-3 rounded-xl bg-bg px-3 py-2.5 text-[13px] leading-relaxed text-sub">
               {f.time && !f.unknownTime
                 ? solarNote(f)
                 : '태어난 시간을 몰라도 운세를 볼 수 있어요. 시간을 알면 시주까지 정확해져요.'}
             </p>
-            <label className="mt-5 flex items-center justify-end gap-2 text-[15px] text-sub">
-              태어난 시간 모름
+            <label className={`mt-5 flex w-full items-center gap-3 rounded-2xl border px-4 py-4 text-[15.5px]
+              ${f.unknownTime ? 'border-ink bg-ink text-white' : 'border-line bg-card text-ink'}`}>
               <input type="checkbox" checked={f.unknownTime} onChange={(e) => set({ unknownTime: e.target.checked })}
-                className="h-6 w-6 accent-[var(--color-ink)]" />
+                className="h-6 w-6 shrink-0 accent-[var(--color-ink)]" />
+              <span className="font-semibold">태어난 시간을 몰라요</span>
+              <span className={`ml-auto text-[13px] ${f.unknownTime ? 'text-white/70' : 'text-faint'}`}>시주 없이 보기</span>
             </label>
           </div>
         )}
@@ -384,7 +474,7 @@ export default function Onboarding({ initial, onDone, onCancel, soundOn, mode = 
               ['성별', f.gender === 'M' ? '남자' : '여자', 0],
               ['생년월일', `${f.year}.${pad(f.month)}.${pad(f.day)} (${f.calendar === 'lunar' ? `음력${f.leap ? ' 윤달' : ''}` : '양력'})`, 1],
               ['시간', timeLabel(f), 2],
-              ['태어난 도시', f.city || '모름', 2],
+              ['태어난 곳', f.city || '모름', 2],
               ['고민', f.concerns.join(', ') || '선택 안 함', 3],
             ].map(([k, v, s]) => (
               <button key={k} type="button" onClick={() => setStep(s)}

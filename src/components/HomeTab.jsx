@@ -215,8 +215,8 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
 
           <Card title="오늘 운세의 근거" right={<span className="text-[12px] text-sub">내 사주 × 오늘 일진</span>} delay={60}>
             <ul className="space-y-2.5">
-              {r.basis.slice(0, 5).map((n) => (
-                <li key={n.text} className="flex gap-2.5">
+              {r.basis.slice(0, 5).map((n, i) => (
+                <li key={`${i}-${n.text}`} className="flex gap-2.5">
                   <span className={`mt-[3px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white
                     ${n.v > 0.5 ? 'bg-[#2563EB]' : n.v < -0.5 ? 'bg-[#DC3B2F]' : 'bg-faint'}`}>
                     {n.v > 0.5 ? '+' : n.v < -0.5 ? '−' : '·'}
