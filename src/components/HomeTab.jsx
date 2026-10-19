@@ -118,9 +118,9 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
     try {
       if (navigator.share) { await navigator.share({ title: '띠링', text, url: location.origin }); return; }
       await navigator.clipboard.writeText(`${text}\n${location.origin}`);
-      toast('결과를 복사했어요');
+      toast('운세를 복사했어요. 카톡에 붙여넣어 보내세요');
     } catch (e) {
-      if (e?.name !== 'AbortError') toast('공유하지 못했어요. 다시 시도해 주세요');
+      if (e?.name !== 'AbortError') toast('보내지 못했어요. 다시 시도해 주세요');
     }
   };
 
@@ -310,7 +310,7 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
             </button>
             <button type="button" onClick={share}
               className="flex items-center justify-center gap-1.5 rounded-2xl bg-ink py-4 text-[15.5px] font-semibold text-white">
-              <Share2 size={17} aria-hidden="true" /> 글로 공유
+              <Share2 size={17} aria-hidden="true" /> 친구에게 보내기
             </button>
           </div>
           <FunNotice />
