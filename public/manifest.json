@@ -44,5 +44,46 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "오늘의 운세 보기",
+      "short_name": "오늘 운세",
+      "description": "오늘 총운과 분야별 운을 바로 봐요",
+      "url": "/?view=home",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "운세 달력",
+      "short_name": "달력",
+      "description": "이번 달 날짜별 점수를 한눈에",
+      "url": "/?view=calendar",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "나의 만세력",
+      "short_name": "만세력",
+      "description": "사주 여덟 글자와 성격 풀이",
+      "url": "/?view=manse",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }

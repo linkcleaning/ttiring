@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Briefcase, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Coins, Heart, HeartPulse, Lightbulb,
-  PencilLine, Share2, Sparkles, X,
+  Download, PencilLine, Share2, Sparkles, X,
 } from 'lucide-react';
 import { computeFortune } from '../lib/saju.js';
 import { EVENT_INFO, buildReading, shareText } from '../lib/fortune.js';
+import { shareCard } from '../lib/shareCard.js';
 import { unlockAudio } from '../lib/sound.js';
 import ZodiacAvatar, { moodOf } from './ZodiacAvatar.jsx';
 import DrawMachine from './DrawMachine.jsx';
@@ -90,6 +91,8 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
   const tone = scoreTone(r.scores.total);
   const name = profile.name?.trim();
   const isMe = profile.id === 'me';
+  const avatarRef = useRef(null);
+  const [saving, setSaving] = useState(false);
   const items = ORDER.map((k) => reading.items.find((i) => i.key === k));
   const ev = reading.event && EVENT_INFO[reading.event];
 
@@ -97,6 +100,17 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
     if (soundOn) unlockAudio();
     setSpinning(true);
     setRunId((n) => n + 1);
+  };
+
+  const saveImage = async () => {
+    setSaving(true);
+    const out = await shareCard(
+      { result: r, reading, name, avatarEl: avatarRef.current?.querySelector('svg') },
+      shareText(r, reading),
+    );
+    setSaving(false);
+    if (out === 'saved') toast('운세 카드를 저장했어요');
+    else if (out === 'failed') toast('이미지를 만들지 못했어요');
   };
 
   const share = async () => {
@@ -118,8 +132,10 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
 
       {/* 인사 */}
       <div className="mt-3 flex items-center gap-3">
-        <ZodiacAvatar branch={r.pillars.year.branch} stem={r.pillars.year.stem} size={54}
-          mood={needDraw ? 3 : moodOf(r.scores.total)} className={spinning ? 'wiggle' : 'bob'} title={`${reading.zodiacName}띠`} />
+        <span ref={avatarRef} className="shrink-0">
+          <ZodiacAvatar branch={r.pillars.year.branch} stem={r.pillars.year.stem} size={54}
+            mood={needDraw ? 3 : moodOf(r.scores.total)} className={spinning ? 'wiggle' : 'bob'} title={`${reading.zodiacName}띠`} />
+        </span>
         <p className="min-w-0 flex-1 text-[15px] leading-snug">
           <span className="text-sub">{reading.ilju} </span>
           {isMe ? (
@@ -287,10 +303,16 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
             <p className="text-[14.5px] leading-[1.7] text-sub">{reading.caution}</p>
           </Card>
 
-          <button type="button" onClick={share}
-            className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-ink py-4 text-[16px] font-semibold text-white">
-            <Share2 size={17} aria-hidden="true" /> 운세 공유하기
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={saveImage} disabled={saving}
+              className="flex items-center justify-center gap-1.5 rounded-2xl border border-line bg-card py-4 text-[15.5px] font-semibold disabled:text-faint">
+              <Download size={17} aria-hidden="true" /> {saving ? '만드는 중…' : '이미지로 저장'}
+            </button>
+            <button type="button" onClick={share}
+              className="flex items-center justify-center gap-1.5 rounded-2xl bg-ink py-4 text-[15.5px] font-semibold text-white">
+              <Share2 size={17} aria-hidden="true" /> 글로 공유
+            </button>
+          </div>
           <FunNotice />
         </div>
       )}

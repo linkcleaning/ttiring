@@ -8,6 +8,7 @@ import SettingsTab from './components/SettingsTab.jsx';
 import { TermContext, TermSheet, TopBar } from './components/ui.jsx';
 import { migrateProfile, personLabel, personYear } from './lib/people.js';
 import { setVibrate } from './lib/sound.js';
+import { catchUp, registerPeriodicSync, syncConfigToSW } from './lib/notify.js';
 
 const KEYS = { people: 'ttiring.people.v1', active: 'ttiring.active', profile: 'paljja.profile.v2', settings: 'paljja.settings', drawn: 'paljja.drawn' };
 const load = (k, fallback) => {
@@ -44,7 +45,14 @@ export default function App() {
     const old = load(KEYS.drawn, '');
     return typeof old === 'string' ? (old ? { me: old } : {}) : old;
   });
-  const [tab, setTab] = useState('home');
+  const [tab, setTab] = useState(() => {
+    try {
+      const v = new URLSearchParams(window.location.search).get('view');
+      return ['home', 'manse', 'calendar', 'settings'].includes(v) ? v : 'home';
+    } catch {
+      return 'home';
+    }
+  });
   const [editing, setEditing] = useState(null); // null | { mode, person }
   const [dateOffset, setDateOffset] = useState(0);
   const [term, setTerm] = useState(null);
@@ -56,6 +64,16 @@ export default function App() {
   useEffect(() => {
     document.documentElement.style.zoom = settings.bigText ? '1.12' : '';
   }, [settings.bigText]);
+  // 알림: 설정 시각이 지났는데 오늘 못 봤으면 바로 띄우고, 하루 한 번 깨우기를 등록
+  useEffect(() => {
+    syncConfigToSW();
+    registerPeriodicSync();
+    catchUp();
+    const onVisible = () => { if (!document.hidden) catchUp(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 500);
     window.addEventListener('scroll', onScroll, { passive: true });

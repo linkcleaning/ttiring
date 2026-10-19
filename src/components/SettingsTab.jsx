@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronRight, Plus, Trash2 } from 'lucide-react';
-import { ANIMALS, HOURS } from '../lib/saju.js';
+import { ANIMALS, HOURS, natalChart } from '../lib/saju.js';
 import { STEM_COLOR } from '../lib/fortune.js';
 import { GLOSSARY } from '../lib/glossary.js';
 import { birthLabel, personLabel, personYear } from '../lib/people.js';
 import ZodiacAvatar from './ZodiacAvatar.jsx';
 import { FunNotice, Sheet } from './ui.jsx';
+import { askPermission, loadNotify, notifyPermission, notifySupported, registerPeriodicSync, saveNotify, showNotification, syncConfigToSW } from '../lib/notify.js';
 
 const pad = (n) => String(n).padStart(2, '0');
 const GROUPS = [
@@ -47,8 +48,25 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
   people = [], activeId, onSelectPerson, onAddPerson, onDeletePerson }) {
   const [sheet, setSheet] = useState(null);
   const [toDelete, setToDelete] = useState(null);
+  const [notify, setNotify] = useState(loadNotify);
+  const [perm, setPerm] = useState(notifyPermission);
+  useEffect(() => { saveNotify(notify); syncConfigToSW(); }, [notify]);
+
+  const toggleNotify = async (on) => {
+    if (!on) { setNotify({ ...notify, on: false }); return; }
+    if (!notifySupported()) { setSheet('noNotify'); return; }
+    let p = notifyPermission();
+    if (p === 'default') p = await askPermission();
+    setPerm(p);
+    if (p !== 'granted') { setSheet('noNotify'); return; }
+    setNotify({ ...notify, on: true });
+    registerPeriodicSync();
+    showNotification('이렇게 알려 드릴게요. 매일 아침 잊지 않게요!');
+  };
   const me = people.find((x) => x.id === 'me') || profile;
   const y = personYear(me);
+  let meHour = null;
+  try { meHour = natalChart(me).hour; } catch { meHour = null; }
 
   return (
     <div className="pb-8 pt-1">
@@ -58,7 +76,7 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
           <p className="text-[18px] font-bold">{me.name || `${STEM_COLOR[y.stem]} ${ANIMALS[y.branch]}띠님`}</p>
           <p className="mt-0.5 text-[14px] text-sub">
             {me.year}.{pad(me.month)}.{pad(me.day)} ({me.calendar === 'lunar' ? '음력' : '양력'})
-            {me.hour !== null && me.hour !== undefined ? `, ${HOURS[me.hour].label}` : ', 시간 모름'}{me.city ? `, ${me.city}` : ''}
+            {meHour !== null && meHour !== undefined ? `, ${HOURS[meHour].label}` : ', 시간 모름'}{me.city ? `, ${me.city}` : ''}
           </p>
         </div>
         <ChevronRight size={20} className="text-faint" />
@@ -104,6 +122,24 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
         <Toggle label="야자시 적용 (밤 11시대 출생)" on={!!me.yajasi} onChange={(v) => onUpdateProfile({ ...me, yajasi: v })} />
       </Group>
 
+      <Group title="알림">
+        <Toggle label="매일 아침 운세 알림" on={notify.on && perm === 'granted'} onChange={toggleNotify} />
+        {notify.on && perm === 'granted' && (
+          <label className="flex w-full items-center justify-between border-b border-line px-5 py-[15px] last:border-b-0">
+            <span className="text-[16px]">알림 시각</span>
+            <input type="time" value={`${String(notify.hour).padStart(2, '0')}:${String(notify.minute).padStart(2, '0')}`}
+              onChange={(e) => {
+                const [h, m] = e.target.value.split(':').map(Number);
+                setNotify({ ...notify, hour: h, minute: m });
+              }}
+              className="rounded-lg bg-bg px-3 py-2 text-[16px] focus:outline-none focus:ring-2 focus:ring-ink" />
+          </label>
+        )}
+        <p className="px-5 py-3 text-[12.5px] leading-relaxed text-sub">
+          알림은 이 기기 안에서만 울려요. 휴대폰이 꺼져 있거나 앱을 오래 열지 않으면 시각이 조금 밀릴 수 있어요.
+        </p>
+      </Group>
+
       <Group title="앱 설정">
         <Toggle label="소리 효과" on={settings.sound} onChange={(v) => setSettings({ ...settings, sound: v })} />
         <Toggle label="진동" on={settings.vibrate} onChange={(v) => setSettings({ ...settings, vibrate: v })} />
@@ -133,6 +169,15 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
             </div>
           </>
         )}
+      </Sheet>
+
+      <Sheet open={sheet === 'noNotify'} onClose={() => setSheet(null)} label="알림을 켤 수 없어요">
+        <h2 className="text-[19px] font-bold">알림을 켤 수 없어요</h2>
+        <p className="mt-2 text-[14.5px] leading-[1.7] text-sub">
+          휴대폰이 이 앱의 알림을 막아 두었어요. 브라우저나 휴대폰 설정에서 띠링의 알림을 허용한 뒤 다시 켜 주세요.
+          아이폰은 홈 화면에 추가한 앱에서만 알림을 받을 수 있어요.
+        </p>
+        <button type="button" onClick={() => setSheet(null)} className="mt-5 w-full rounded-2xl bg-ink py-4 text-[16px] font-semibold text-white">알겠어요</button>
       </Sheet>
 
       <Sheet open={sheet === 'terms'} onClose={() => setSheet(null)} label="사주 기초 용어">
