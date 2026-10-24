@@ -203,6 +203,15 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
             </div>
           </section>
 
+          <Card title={isToday ? '오늘의 운세 풀이' : '이날의 운세 풀이'}
+            right={<span className="text-[12px] text-sub">{reading.grade.label}({reading.grade.hanja})</span>} delay={40}>
+            <div className="space-y-3.5">
+              {reading.detail.map((p, i) => (
+                <p key={i} className="text-[15.5px] leading-[1.85] text-[#3a3a42]">{p}</p>
+              ))}
+            </div>
+          </Card>
+
           <dl className="reveal grid grid-cols-3 gap-2 text-center">
             {[['일진', r.scores.myeong, `${reading.ganzhiLine.split(' ')[2]} 기준`], ['당사주', r.scores.dang, r.star.name], ['주역', r.scores.juyeok, r.iching.changed.ko]].map(([k, v, sub]) => (
               <div key={k} className="rounded-2xl border border-line bg-card px-2 py-3">
