@@ -68,6 +68,25 @@ body {
   }
 }
 
+/* ── 관상 스캔 ───────────────────────────── */
+.scan-line { animation: scan 2.1s ease-in-out infinite; }
+@keyframes scan {
+  0% { top: 6%; opacity: 0; }
+  10% { opacity: 1; }
+  50% { top: 92%; opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 6%; opacity: 0; }
+}
+.scan-dot { animation: scandot 2.1s ease-in-out infinite both; }
+@keyframes scandot {
+  0%, 20% { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
+  45% { opacity: 1; transform: translate(-50%, -50%) scale(1.35); }
+  70%, 100% { opacity: .55; transform: translate(-50%, -50%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scan-line, .scan-dot { animation-duration: 1ms !important; animation-iteration-count: 1 !important; opacity: 1 !important; }
+}
+
 /* 아래에서 올라오는 시트 */
 .sheet-in { animation: sheetin 260ms cubic-bezier(.2,.9,.3,1) both; }
 @keyframes sheetin { from { transform: translateY(100%); } to { transform: none; } }

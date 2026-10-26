@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowUp, CalendarDays, House, ScrollText, Settings } from 'lucide-react';
+import { ArrowUp, CalendarDays, House, ScanFace, ScrollText, Settings } from 'lucide-react';
 import Onboarding, { toProfile } from './components/Onboarding.jsx';
 import HomeTab from './components/HomeTab.jsx';
 import ManseTab from './components/ManseTab.jsx';
 import MonthCalendar from './components/MonthCalendar.jsx';
+import FaceTab from './components/FaceTab.jsx';
 import SettingsTab from './components/SettingsTab.jsx';
 import { TermContext, TermSheet, TopBar } from './components/ui.jsx';
 import { migrateProfile, personLabel, personYear } from './lib/people.js';
@@ -28,6 +29,7 @@ const save = (k, v) => {
 
 const TABS = [
   { key: 'home', label: '홈', icon: House, title: '홈' },
+  { key: 'face', label: '관상', icon: ScanFace, title: '관상 보기' },
   { key: 'manse', label: '만세력', icon: ScrollText, title: '나의 만세력' },
   { key: 'calendar', label: '달력', icon: CalendarDays, title: '운세 달력' },
   { key: 'settings', label: '설정', icon: Settings, title: '설정' },
@@ -48,7 +50,7 @@ export default function App() {
   const [tab, setTab] = useState(() => {
     try {
       const v = new URLSearchParams(window.location.search).get('view');
-      return ['home', 'manse', 'calendar', 'settings'].includes(v) ? v : 'home';
+      return ['home', 'face', 'manse', 'calendar', 'settings'].includes(v) ? v : 'home';
     } catch {
       return 'home';
     }
@@ -124,7 +126,7 @@ export default function App() {
   return (
     <TermContext.Provider value={setTerm}>
       <div className="mx-auto min-h-screen max-w-[440px] px-4 pb-[calc(84px+env(safe-area-inset-bottom))]">
-        <TopBar title={isMe ? current.title : `${personLabel(profile)}님의 ${current.key === 'home' ? '운세' : current.title.replace('나의 ', '')}`} />
+        <TopBar title={isMe ? current.title : `${personLabel(profile)}님의 ${current.key === 'home' ? '운세' : current.title.replace('나의 ', '').replace(' 보기', '')}`} />
 
         {tab === 'home' && (
           <HomeTab key={profile.id} profile={profile} soundOn={settings.sound}
@@ -140,6 +142,7 @@ export default function App() {
             dateOffset={dateOffset} setDateOffset={setDateOffset}
             onOpenCalendar={() => go('calendar')} toast={toast} />
         )}
+        {tab === 'face' && <FaceTab key={profile.id} profile={profile} dateOffset={dateOffset} toast={toast} />}
         {tab === 'manse' && <ManseTab key={profile.id} profile={profile} />}
         {tab === 'calendar' && (
           <div className="pb-6 pt-1">
@@ -172,13 +175,13 @@ export default function App() {
 
       {/* 아래 탭 */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur" aria-label="메뉴">
-        <div className="mx-auto grid max-w-[440px] grid-cols-4">
+        <div className="mx-auto grid max-w-[440px] grid-cols-5">
           {TABS.map(({ key, label, icon: Icon }) => {
             const on = tab === key;
             return (
               <button key={key} type="button" onClick={() => go(key)} aria-current={on ? 'page' : undefined}
                 className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] ${on ? 'font-bold text-ink' : 'text-faint'}`}>
-                <span className={`rounded-xl px-4 py-1 ${on ? 'bg-bg' : ''}`}><Icon size={22} strokeWidth={on ? 2.4 : 2} /></span>
+                <span className={`rounded-xl px-3 py-1 ${on ? 'bg-bg' : ''}`}><Icon size={21} strokeWidth={on ? 2.4 : 2} /></span>
                 {label}
               </button>
             );
