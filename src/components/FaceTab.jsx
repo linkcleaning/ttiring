@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, ChevronDown, Images, RefreshCw, ScanFace, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { Camera, ChevronDown, Images, RefreshCw, ScanFace, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
 import { computeFortune, manseryeok } from '../lib/saju.js';
 import {
   CAM_ERR, FACE_ERR, cameraSupported, captureFrame, closeCamera, detectFace, fileToImage, openCamera,
@@ -7,22 +7,11 @@ import {
 import { faceContext, faceMarkers, faceQuality, measureFace, readFace } from '../lib/gwansang.js';
 import { Card, FunNotice, Term } from './ui.jsx';
 import PersonBar from './PersonBar.jsx';
+import { Sheet } from './ui.jsx';
+import { clearFace, loadFace, saveFace } from '../lib/faceStore.js';
 import { personLabel } from '../lib/people.js';
 
-const KEY = (id) => `ttiring.face.${id}`;
 const ASPECT = 3 / 4; // 카메라 화면 비율 (가로÷세로)
-const load = (id) => {
-  try {
-    const v = localStorage.getItem(KEY(id));
-    return v ? JSON.parse(v) : null;
-  } catch { return null; }
-};
-const save = (id, v) => {
-  try {
-    if (v === null) localStorage.removeItem(KEY(id));
-    else localStorage.setItem(KEY(id), JSON.stringify(v));
-  } catch { /* 저장 불가 */ }
-};
 
 const STEPS = [
   '얼굴의 열두 자리를 잡는 중…',
@@ -89,13 +78,14 @@ function PartCard({ part, delay }) {
 }
 
 export default function FaceTab({ profile, people = [], activeId, onSelectPerson, onAddPerson, dateOffset = 0, toast }) {
-  const [saved, setSaved] = useState(() => load(profile.id));
+  const [saved, setSaved] = useState(() => loadFace(profile.id));
   const [photo, setPhoto] = useState(null);
   const [phase, setPhase] = useState(saved ? 'done' : 'idle'); // idle|camera|scanning|done|error
   const [step, setStep] = useState(0);
   const [error, setError] = useState('');
   const [camError, setCamError] = useState('');
   const [ready, setReady] = useState(false);
+  const [askClear, setAskClear] = useState(false);
   const fileRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -107,7 +97,7 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
   }, []);
 
   useEffect(() => {
-    const s = load(profile.id);
+    const s = loadFace(profile.id);
     setSaved(s);
     setPhoto(null);
     setPhase(s ? 'done' : 'idle');
@@ -155,7 +145,7 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
       if (!aliveRef.current) return;
       const next = { measures, markers, quality, photo: shot.dataUrl, at: Date.now() };
       setSaved(next);
-      save(profile.id, { measures, markers, quality, at: next.at }); // 사진은 저장하지 않아요
+      saveFace(profile.id, { measures, markers, quality, at: next.at }); // 사진은 저장하지 않아요
       setPhase('done');
       toast?.(quality.ok ? '관상 분석을 마쳤어요' : '분석했어요. 다시 찍으면 더 정확해요');
     } catch (e) {
@@ -214,6 +204,13 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
   };
 
   const reset = () => { stopCam(); setPhoto(null); setError(''); setPhase('idle'); };
+  const doClear = () => {
+    clearFace(profile.id);
+    setAskClear(false);
+    setSaved(null);
+    reset();
+    toast?.('관상 기록을 지웠어요');
+  };
   const name = profile.name?.trim();
   const who = profile.id === 'me' ? (name ? `${name}님` : '내') : `${personLabel(profile)}님의`;
   const shownPhoto = photo || saved?.photo || null;
@@ -422,10 +419,16 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
             </div>
           </Card>
 
-          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-card py-4 text-[15.5px] font-semibold">
-            <RefreshCw size={17} className="shrink-0" aria-hidden="true" /> 맨 위에서 다시 찍기
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="flex min-w-0 items-center justify-center gap-1.5 rounded-2xl border border-line bg-card py-4 text-[15px] font-semibold">
+              <RefreshCw size={17} className="shrink-0" aria-hidden="true" /> 맨 위로
+            </button>
+            <button type="button" onClick={() => setAskClear(true)}
+              className="flex min-w-0 items-center justify-center gap-1.5 rounded-2xl border border-line bg-card py-4 text-[15px] font-semibold text-point">
+              <Trash2 size={17} className="shrink-0" aria-hidden="true" /> 관상 초기화
+            </button>
+          </div>
 
           <aside className="rounded-[20px] bg-[#F6F1FF] px-5 py-4" aria-label="관상 이용 안내">
             <p className="text-[14px] font-bold text-[#5B3FB0]">관상은 이렇게 봐 주세요</p>
@@ -440,9 +443,28 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
       {phase === 'done' && !reading && (
         <Card title="관상 풀이를 만들지 못했어요">
           <p className="text-[15px] leading-[1.8]">사주 정보가 모자라요. 설정에서 생년월일을 확인해 주세요.</p>
-          <button type="button" onClick={reset} className="mt-4 w-full rounded-2xl bg-ink py-3.5 text-[15px] font-semibold text-white">다시 시도</button>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button type="button" onClick={reset} className="rounded-2xl bg-ink py-3.5 text-[15px] font-semibold text-white">다시 시도</button>
+            <button type="button" onClick={() => setAskClear(true)} className="rounded-2xl border border-line bg-card py-3.5 text-[15px] font-semibold text-point">관상 초기화</button>
+          </div>
         </Card>
       )}
+
+      <Sheet open={askClear} onClose={() => setAskClear(false)} label="관상 초기화">
+        <h2 className="text-[19px] font-bold">
+          {profile.id === 'me' ? '내' : `${personLabel(profile)}님의`} 관상 기록을 지울까요?
+        </h2>
+        <p className="mt-2 text-[14.5px] leading-[1.75] text-sub">
+          사진에서 잰 수치와 풀이가 사라져요. 다시 보려면 사진을 한 번 더 찍어야 해요.
+          다른 사람의 관상과 사주·운세 기록은 그대로 남아요.
+        </p>
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => setAskClear(false)}
+            className="rounded-2xl bg-bg py-4 text-[16px] font-semibold">그대로 두기</button>
+          <button type="button" onClick={doClear}
+            className="rounded-2xl bg-[#E0455A] py-4 text-[16px] font-semibold text-white">지우기</button>
+        </div>
+      </Sheet>
     </div>
   );
 }

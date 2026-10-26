@@ -6,6 +6,7 @@ import { GLOSSARY } from '../lib/glossary.js';
 import { birthLabel, personLabel, personYear } from '../lib/people.js';
 import ZodiacAvatar from './ZodiacAvatar.jsx';
 import { FunNotice, Sheet } from './ui.jsx';
+import { clearAllFaces, countFaces } from '../lib/faceStore.js';
 import { askPermission, loadNotify, notifyPermission, notifySupported, registerPeriodicSync, saveNotify, showNotification, syncConfigToSW } from '../lib/notify.js';
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -45,7 +46,8 @@ const Group = ({ title, children }) => (
 );
 
 export default function SettingsTab({ profile, settings, setSettings, onEdit, onReset, openTerm, onUpdateProfile,
-  people = [], activeId, onSelectPerson, onAddPerson, onDeletePerson }) {
+  people = [], activeId, onSelectPerson, onAddPerson, onDeletePerson, onClearedFaces }) {
+  const [faceCount, setFaceCount] = useState(() => countFaces());
   const [sheet, setSheet] = useState(null);
   const [toDelete, setToDelete] = useState(null);
   const [notify, setNotify] = useState(loadNotify);
@@ -154,6 +156,8 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
       </Group>
 
       <Group>
+        <Row label="관상 기록 지우기" value={faceCount ? `${faceCount}명` : '없음'}
+          onClick={() => faceCount && setSheet('face')} />
         <Row label="모든 정보 지우고 처음부터" danger onClick={() => setSheet('reset')} />
       </Group>
 
@@ -228,9 +232,22 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
         <div className="mt-4"><FunNotice /></div>
       </Sheet>
 
+      <Sheet open={sheet === 'face'} onClose={() => setSheet(null)} label="관상 기록 지우기">
+        <h2 className="text-[19px] font-bold">관상 기록을 모두 지울까요?</h2>
+        <p className="mt-2 text-[14.5px] leading-[1.7] text-sub">
+          등록한 {faceCount}명의 얼굴 수치와 풀이가 사라져요. 사진은 원래 저장하지 않으니 따로 지울 게 없어요.
+          생일·운세 기록은 그대로 남아요.
+        </p>
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => setSheet(null)} className="rounded-2xl bg-bg py-4 text-[16px] font-semibold">취소</button>
+          <button type="button" onClick={() => { const n = clearAllFaces(); setFaceCount(0); setSheet(null); onClearedFaces?.(n); }}
+            className="rounded-2xl bg-[#E0455A] py-4 text-[16px] font-semibold text-white">지우기</button>
+        </div>
+      </Sheet>
+
       <Sheet open={sheet === 'reset'} onClose={() => setSheet(null)} label="정보 지우기">
         <h2 className="text-[19px] font-bold">모든 정보를 지울까요?</h2>
-        <p className="mt-2 text-[14.5px] leading-[1.7] text-sub">등록한 사람 전부와 설정이 지워지고 처음 화면으로 돌아가요.</p>
+        <p className="mt-2 text-[14.5px] leading-[1.7] text-sub">등록한 사람 전부와 설정, 관상 기록이 모두 지워지고 처음 화면으로 돌아가요.</p>
         <div className="mt-5 grid grid-cols-2 gap-2">
           <button type="button" onClick={() => setSheet(null)} className="rounded-2xl bg-bg py-4 text-[16px] font-semibold">취소</button>
           <button type="button" onClick={onReset} className="rounded-2xl bg-[#E0455A] py-4 text-[16px] font-semibold text-white">지우기</button>

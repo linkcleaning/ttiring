@@ -10,6 +10,7 @@ import { TermContext, TermSheet, TopBar } from './components/ui.jsx';
 import { migrateProfile, personLabel, personYear } from './lib/people.js';
 import { setVibrate } from './lib/sound.js';
 import { catchUp, registerPeriodicSync, syncConfigToSW } from './lib/notify.js';
+import { clearAllFaces, clearFace } from './lib/faceStore.js';
 
 const KEYS = { people: 'ttiring.people.v1', active: 'ttiring.active', profile: 'paljja.profile.v2', settings: 'paljja.settings', drawn: 'paljja.drawn' };
 const load = (k, fallback) => {
@@ -164,6 +165,7 @@ export default function App() {
             onEdit={(person) => setEditing({ mode: person.id === 'me' ? 'edit' : 'add', person })}
             onAddPerson={() => setEditing({ mode: 'add', person: null })}
             onDeletePerson={(id) => {
+              clearFace(id);
               const list = people.filter((x) => x.id !== id);
               savePeople(list);
               if (activeId === id) selectPerson(list[0]?.id ?? 'me');
@@ -173,7 +175,8 @@ export default function App() {
               const next = toProfile({ ...p, unknownTime: !p.time });
               savePeople(people.map((x) => (x.id === p.id ? { ...next, id: x.id, relation: x.relation } : x)));
             }}
-            onReset={() => { Object.values(KEYS).forEach((k) => save(k, null)); setPeople([]); setDrawn({}); setTab('home'); }} />
+            onClearedFaces={(n) => toast(n ? `관상 기록 ${n}개를 지웠어요` : '지울 관상 기록이 없어요')}
+            onReset={() => { Object.values(KEYS).forEach((k) => save(k, null)); clearAllFaces(); setPeople([]); setDrawn({}); setTab('home'); }} />
         )}
       </div>
 
