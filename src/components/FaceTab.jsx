@@ -6,6 +6,7 @@ import {
 } from '../lib/faceModel.js';
 import { faceContext, faceMarkers, faceQuality, measureFace, readFace } from '../lib/gwansang.js';
 import { Card, FunNotice, Term } from './ui.jsx';
+import PersonBar from './PersonBar.jsx';
 import { personLabel } from '../lib/people.js';
 
 const KEY = (id) => `ttiring.face.${id}`;
@@ -87,7 +88,7 @@ function PartCard({ part, delay }) {
   );
 }
 
-export default function FaceTab({ profile, dateOffset = 0, toast }) {
+export default function FaceTab({ profile, people = [], activeId, onSelectPerson, onAddPerson, dateOffset = 0, toast }) {
   const [saved, setSaved] = useState(() => load(profile.id));
   const [photo, setPhoto] = useState(null);
   const [phase, setPhase] = useState(saved ? 'done' : 'idle'); // idle|camera|scanning|done|error
@@ -221,6 +222,13 @@ export default function FaceTab({ profile, dateOffset = 0, toast }) {
   return (
     <div className="pb-6 pt-1">
       <input ref={fileRef} type="file" accept="image/*" onChange={onPick} className="hidden" aria-hidden="true" tabIndex={-1} />
+
+      {/* 사람 고르기 — 관상도 사람마다 따로 저장돼요 */}
+      {phase !== 'camera' && phase !== 'scanning' && onSelectPerson && (
+        <div className="mb-3">
+          <PersonBar people={people} activeId={activeId ?? profile.id} onSelect={onSelectPerson} onAdd={onAddPerson} />
+        </div>
+      )}
 
       {/* ── 시작 ── */}
       {phase === 'idle' && (
@@ -356,10 +364,20 @@ export default function FaceTab({ profile, dateOffset = 0, toast }) {
                 </div>
               )}
               <div className="min-w-0">
-                <p className="text-[13px] text-sub">얼굴 오행형</p>
+                <p className="text-[13px] text-sub">{profile.id === 'me' ? '얼굴 오행형' : `${personLabel(profile)}님 · 얼굴 오행형`}</p>
                 <p className="mt-0.5 text-[22px] font-extrabold leading-tight">{reading.shape.name}</p>
                 <p className="mt-1.5 text-[13.5px] leading-[1.6] text-sub">{reading.shape.desc}</p>
               </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button type="button" onClick={startCamera}
+                className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl bg-ink py-2.5 text-[14px] font-semibold text-white">
+                <Camera size={16} className="shrink-0" aria-hidden="true" /> 다시 찍기
+              </button>
+              <button type="button" onClick={() => fileRef.current?.click()}
+                className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-line bg-card py-2.5 text-[14px] font-semibold">
+                <Images size={16} className="shrink-0" aria-hidden="true" /> 앨범에서
+              </button>
             </div>
           </section>
 
@@ -404,9 +422,9 @@ export default function FaceTab({ profile, dateOffset = 0, toast }) {
             </div>
           </Card>
 
-          <button type="button" onClick={startCamera}
+          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-card py-4 text-[15.5px] font-semibold">
-            <RefreshCw size={17} className="shrink-0" aria-hidden="true" /> 다시 찍기
+            <RefreshCw size={17} className="shrink-0" aria-hidden="true" /> 맨 위에서 다시 찍기
           </button>
 
           <aside className="rounded-[20px] bg-[#F6F1FF] px-5 py-4" aria-label="관상 이용 안내">

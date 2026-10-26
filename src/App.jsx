@@ -142,7 +142,11 @@ export default function App() {
             dateOffset={dateOffset} setDateOffset={setDateOffset}
             onOpenCalendar={() => go('calendar')} toast={toast} />
         )}
-        {tab === 'face' && <FaceTab key={profile.id} profile={profile} dateOffset={dateOffset} toast={toast} />}
+        {tab === 'face' && (
+          <FaceTab key={profile.id} profile={profile} dateOffset={dateOffset} toast={toast}
+            people={people} activeId={profile.id} onSelectPerson={selectPerson}
+            onAddPerson={() => setEditing({ mode: 'add', person: null })} />
+        )}
         {tab === 'manse' && <ManseTab key={profile.id} profile={profile} />}
         {tab === 'calendar' && (
           <div className="pb-6 pt-1">
