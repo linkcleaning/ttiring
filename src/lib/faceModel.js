@@ -79,6 +79,61 @@ export async function detectFace(image) {
   return pts;
 }
 
+// ── 앱 안 카메라 (얼굴 가이드를 그리려면 기본 카메라 앱이 아니라 여기서 찍어야 해요) ──
+export const cameraSupported = () =>
+  typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
+
+export const CAM_ERR = {
+  denied: '카메라를 쓸 수 없어요. 브라우저 설정에서 카메라 권한을 허용하거나, 앨범에서 사진을 골라 주세요.',
+  none: '이 기기에서는 앱 안 카메라를 열 수 없어요. 앨범에서 사진을 골라 주세요.',
+};
+
+/** 전면 카메라 열기 */
+export async function openCamera() {
+  if (!cameraSupported()) {
+    const e = new Error(CAM_ERR.none); e.code = 'none'; throw e;
+  }
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 1280 } },
+      audio: false,
+    });
+  } catch (err) {
+    const e = new Error(err?.name === 'NotAllowedError' ? CAM_ERR.denied : CAM_ERR.none);
+    e.code = err?.name === 'NotAllowedError' ? 'denied' : 'none';
+    throw e;
+  }
+}
+
+export function closeCamera(stream) {
+  try { stream?.getTracks?.().forEach((t) => t.stop()); } catch { /* 이미 닫힘 */ }
+}
+
+/**
+ * 화면에 보이던 그대로 한 장 찍기. 거울 반전은 하지 않아요 — 좌우 광대를 가려야 하니까요.
+ * @param video  <video> 요소
+ * @param aspect 화면에 보이던 가로÷세로 (object-cover로 잘린 영역을 그대로 재현)
+ */
+export function captureFrame(video, aspect = 3 / 4, maxSide = 640) {
+  const vw = video?.videoWidth;
+  const vh = video?.videoHeight;
+  if (!vw || !vh) {
+    const e = new Error(FACE_ERR.read); e.code = 'read'; throw e;
+  }
+  let sw = vw;
+  let sh = vh;
+  if (vw / vh > aspect) sw = vh * aspect; else sh = vw / aspect;
+  const sx = (vw - sw) / 2;
+  const sy = (vh - sh) / 2;
+
+  const scale = Math.min(1, maxSide / Math.max(sw, sh));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(sw * scale));
+  canvas.height = Math.max(1, Math.round(sh * scale));
+  canvas.getContext('2d').drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return { canvas, dataUrl: canvas.toDataURL('image/jpeg', 0.85), width: canvas.width, height: canvas.height };
+}
+
 /** 업로드한 파일 → 화면에 그릴 수 있는 이미지 (긴 변 640px로 줄여서 분석) */
 export function fileToImage(file, maxSide = 640) {
   return new Promise((resolve, reject) => {

@@ -33,8 +33,10 @@ const P = {
   noseTip: 1,
   noseBottom: 2,
   noseAlar: [48, 115, 131, 49, 278, 344, 360, 279, 98, 327, 64, 294],
-  cheekL: [234, 127, 93, 116, 117],
-  cheekR: [454, 356, 323, 345, 346],
+  // MediaPipe FaceMesh는 "본인 기준" 좌우예요. FACEMESH_LEFT_* 묶음에 263·362·454가
+  // 들어가므로 454 쪽이 본인의 왼쪽(사진에서는 오른편)입니다.
+  cheekRight: [234, 127, 93, 116, 117], // 본인 오른쪽 뺨 = 서악(金)
+  cheekLeft: [454, 356, 323, 345, 346], // 본인 왼쪽 뺨 = 동악(木)
   jawL: [172, 136, 150, 149],
   jawR: [397, 365, 379, 378],
   mouth: [61, 291, 13, 14, 0, 17, 78, 308, 37, 267],
@@ -63,8 +65,8 @@ export function measureFace(landmarks) {
   const topY = Math.min(...ys(lm, P.foreheadTop));
   const chinY = Math.max(...ys(lm, P.chin));
   const H = chinY - topY;
-  const leftX = Math.min(...xs(lm, P.cheekL));
-  const rightX = Math.max(...xs(lm, P.cheekR));
+  const leftX = Math.min(...xs(lm, P.cheekRight));  // 사진 왼편 = 본인 오른쪽
+  const rightX = Math.max(...xs(lm, P.cheekLeft));  // 사진 오른편 = 본인 왼쪽
   const W = rightX - leftX;
   if (!(H > 0) || !(W > 0)) throw new Error('얼굴 크기를 잴 수 없어요');
 
@@ -87,7 +89,7 @@ export function measureFace(landmarks) {
   const noseLen = (noseBottomY - lm[P.bridgeTop].y) / H;
   const noseW = spanX(lm, P.noseAlar) / W;
   // 콧대 높이: 코끝이 광대보다 얼마나 앞으로 나왔는지 (z는 작을수록 앞)
-  const cheekZ = avg([meanZ(lm, P.cheekL), meanZ(lm, P.cheekR)]);
+  const cheekZ = avg([meanZ(lm, P.cheekRight), meanZ(lm, P.cheekLeft)]);
   const noseZ = (cheekZ - (lm[P.noseTip].z ?? 0)) / W;
 
   // 입·턱
@@ -99,10 +101,11 @@ export function measureFace(landmarks) {
 
   // 이마 폭, 광대
   const foreheadW = spanX(lm, P.foreheadSide) / W;
-  const cheekSpreadL = (midX - Math.min(...xs(lm, P.cheekL))) / W;
-  const cheekSpreadR = (Math.max(...xs(lm, P.cheekR)) - midX) / W;
-  const cheekZL = (cheekZ - meanZ(lm, P.cheekL)) / W;
-  const cheekZR = (cheekZ - meanZ(lm, P.cheekR)) / W;
+  // 본인 기준 왼쪽(동악·木) / 오른쪽(서악·金)
+  const cheekSpreadL = (Math.max(...xs(lm, P.cheekLeft)) - midX) / W;
+  const cheekSpreadR = (midX - Math.min(...xs(lm, P.cheekRight))) / W;
+  const cheekZL = (cheekZ - meanZ(lm, P.cheekLeft)) / W;
+  const cheekZR = (cheekZ - meanZ(lm, P.cheekRight)) / W;
 
   const faceRatio = H / W; // 길이 ÷ 폭
 
@@ -114,6 +117,37 @@ export function measureFace(landmarks) {
     jawW, chinLen, foreheadW,
     cheekSpreadL, cheekSpreadR, cheekZL, cheekZR,
   };
+}
+
+/**
+ * 사진이 관상 보기에 알맞은지 (너무 작거나·치우치거나·기울거나·옆을 보는지)
+ * @returns {{ok:boolean, issues:string[], size:number, offset:number, tilt:number, yaw:number}}
+ */
+export function faceQuality(lm) {
+  const topY = Math.min(...ys(lm, P.foreheadTop));
+  const chinY = Math.max(...ys(lm, P.chin));
+  const leftX = Math.min(...xs(lm, P.cheekRight));
+  const rightX = Math.max(...xs(lm, P.cheekLeft));
+  const H = chinY - topY;
+  const W = rightX - leftX;
+  const cx = (leftX + rightX) / 2;
+  const cy = (topY + chinY) / 2;
+
+  const eL = { x: avg(xs(lm, P.eyeL)), y: avg(ys(lm, P.eyeL)) };
+  const eR = { x: avg(xs(lm, P.eyeR)), y: avg(ys(lm, P.eyeR)) };
+  const tilt = Math.abs((Math.atan2(eR.y - eL.y, eR.x - eL.x) * 180) / Math.PI);
+  const nose = lm[P.noseTip].x;
+  const dl = Math.abs(rightX - nose);
+  const dr = Math.abs(nose - leftX);
+  const yaw = Math.abs(dl - dr) / Math.max(dl, dr); // 0이면 정면
+
+  const issues = [];
+  if (H < 0.42) issues.push('얼굴이 작게 나왔어요. 조금 더 가까이에서 찍어 주세요.');
+  if (Math.abs(cx - 0.5) > 0.14 || Math.abs(cy - 0.5) > 0.18) issues.push('얼굴이 한쪽으로 치우쳤어요. 가운데에 맞춰 주세요.');
+  if (tilt > 9) issues.push('고개가 기울었어요. 머리를 바로 세우고 찍어 주세요.');
+  if (yaw > 0.26) issues.push('옆얼굴에 가까워요. 카메라를 정면으로 보고 찍어 주세요.');
+  if (!(H > 0) || !(W > 0)) issues.push('얼굴 크기를 재지 못했어요.');
+  return { ok: issues.length === 0, issues, size: +H.toFixed(3), offset: +Math.abs(cx - 0.5).toFixed(3), tilt: +tilt.toFixed(1), yaw: +yaw.toFixed(2) };
 }
 
 /** 결과 화면에서 사진 위에 찍어 줄 실제 좌표 (0~1) */
@@ -134,8 +168,8 @@ export function faceScores(m) {
   const 남악 = Math.round(norm(m.sang, 0.24, 0.42) * 0.6 + norm(m.foreheadW, 0.72, 1.0) * 0.4); // 이마 = 火
   const 중악 = Math.round(norm(m.noseLen, 0.26, 0.40) * 0.4 + norm(m.noseW, 0.21, 0.33) * 0.3 + norm(m.noseZ, 0.02, 0.16) * 0.3); // 코 = 土
   const 북악 = Math.round(norm(m.jawW, 0.58, 0.84) * 0.6 + norm(m.chinLen, 0.12, 0.26) * 0.4); // 턱 = 水
-  const 동악 = norm(m.cheekSpreadL * 2 + m.cheekZL, 0.88, 1.18); // 왼쪽 광대 = 木
-  const 서악 = norm(m.cheekSpreadR * 2 + m.cheekZR, 0.88, 1.18); // 오른쪽 광대 = 金
+  const 동악 = norm(m.cheekSpreadL * 2 + m.cheekZL, 0.88, 1.18); // 본인 왼쪽 광대 = 木
+  const 서악 = norm(m.cheekSpreadR * 2 + m.cheekZR, 0.88, 1.18); // 본인 오른쪽 광대 = 金
 
   const 눈 = Math.round(norm(m.eyeW, 0.17, 0.28) * 0.5 + norm(m.eyeH, 0.025, 0.06) * 0.5);
   const 입 = Math.round(norm(m.mouthW, 0.29, 0.45) * 0.6 + norm(m.lipH, 0.05, 0.12) * 0.4);
