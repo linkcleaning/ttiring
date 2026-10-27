@@ -59,20 +59,25 @@ function Bar({ label, score, sub }) {
   );
 }
 
-function PartCard({ part, delay }) {
-  const [open, setOpen] = useState(false);
+function PartCard({ part, delay, open, onToggle }) {
   return (
     <section className="reveal rounded-[20px] border border-line bg-card" style={{ animationDelay: `${delay}ms` }}>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="w-full p-4 text-left">
+      <button type="button" onClick={onToggle} aria-expanded={open} className="w-full p-4 text-left">
         <div className="flex items-center gap-2">
           <h3 className="shrink-0 text-[15.5px] font-bold">{part.key}</h3>
-          <span className="truncate rounded-full bg-bg px-2 py-0.5 text-[11.5px] text-sub">{part.palace}</span>
+          {part.name && (
+            <span className="shrink-0 rounded-full bg-ink px-2.5 py-0.5 text-[12px] font-semibold text-white">
+              {part.name}
+            </span>
+          )}
           <span className="ml-auto shrink-0 text-[16px] font-bold tabular-nums">{part.score}</span>
           <ChevronDown size={17} className={`shrink-0 text-faint transition-transform ${open ? 'rotate-180' : ''}`} />
         </div>
-        <p className="mt-1.5 text-[12.5px] text-faint">{part.life}</p>
+        <p className="mt-1.5 truncate text-[12.5px] text-faint">
+          {part.palace}{part.hanja ? ` · ${part.hanja}` : ''} · {part.life}{part.age ? ` · ${part.age}` : ''}
+        </p>
       </button>
-      {open && <p className="fade-in px-4 pb-4 text-[14.5px] leading-[1.8] text-[#3a3a42]">{part.text}</p>}
+      {open && <p className="fade-in px-4 pb-4 text-[14.5px] leading-[1.85] text-[#3a3a42]">{part.text}</p>}
     </section>
   );
 }
@@ -86,6 +91,8 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
   const [camError, setCamError] = useState('');
   const [ready, setReady] = useState(false);
   const [askClear, setAskClear] = useState(false);
+  const [openPart, setOpenPart] = useState('눈');
+  const [allOpen, setAllOpen] = useState(false);
   const fileRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -364,6 +371,7 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
                 <p className="text-[13px] text-sub">{profile.id === 'me' ? '얼굴 오행형' : `${personLabel(profile)}님 · 얼굴 오행형`}</p>
                 <p className="mt-0.5 text-[22px] font-extrabold leading-tight">{reading.shape.name}</p>
                 <p className="mt-1.5 text-[13.5px] leading-[1.6] text-sub">{reading.shape.desc}</p>
+                <p className="mt-2 text-[12.5px] font-semibold leading-[1.5] text-ink">{reading.headline}</p>
               </div>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
@@ -405,9 +413,24 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
             <p className="mt-3 text-[14.5px] leading-[1.8] text-[#3a3a42]">{reading.flow}</p>
           </Card>
 
-          <div className="space-y-2">
-            {reading.parts.map((p, i) => <PartCard key={p.key} part={p} delay={160 + i * 50} />)}
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-[16px] font-bold">부위별 풀이</h2>
+            <button type="button" onClick={() => setAllOpen((v) => !v)}
+              className="rounded-full border border-line bg-card px-3 py-1.5 text-[12.5px] font-semibold">
+              {allOpen ? '모두 접기' : '모두 펼치기'}
+            </button>
           </div>
+          <div className="space-y-2">
+            {reading.parts.map((p, i) => (
+              <PartCard key={p.key} part={p} delay={160 + i * 40}
+                open={openPart === p.key || allOpen}
+                onToggle={() => { setAllOpen(false); setOpenPart(openPart === p.key ? null : p.key); }} />
+            ))}
+          </div>
+
+          <Card title="유년(流年) 흐름" right={<span className="text-[12px] text-sub">십삼부위</span>} delay={430}>
+            <p className="text-[14.5px] leading-[1.85] text-[#3a3a42]">{reading.ages}</p>
+          </Card>
 
           <Card title="명궁(命宮)" delay={400}>
             <p className="text-[14.5px] leading-[1.8] text-[#3a3a42]">{reading.myeonggung}</p>
