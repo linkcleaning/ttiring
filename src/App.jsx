@@ -9,7 +9,7 @@ import SettingsTab from './components/SettingsTab.jsx';
 import { TermContext, TermSheet, TopBar } from './components/ui.jsx';
 import { migrateProfile, personLabel, personYear } from './lib/people.js';
 import { setVibrate } from './lib/sound.js';
-import { catchUp, registerPeriodicSync, syncConfigToSW } from './lib/notify.js';
+import { catchUp, refreshSubscription, registerPeriodicSync, syncConfigToSW } from './lib/notify.js';
 import { clearAllFaces, clearFace } from './lib/faceStore.js';
 
 const KEYS = { people: 'ttiring.people.v1', active: 'ttiring.active', profile: 'paljja.profile.v2', settings: 'paljja.settings', drawn: 'paljja.drawn' };
@@ -71,6 +71,7 @@ export default function App() {
   useEffect(() => {
     syncConfigToSW();
     registerPeriodicSync();
+    refreshSubscription();
     catchUp();
     const onVisible = () => { if (!document.hidden) catchUp(); };
     document.addEventListener('visibilitychange', onVisible);

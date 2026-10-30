@@ -1,9 +1,25 @@
 {
-  // Cloudflare Workers 정적 사이트 배포 설정 (npm run build → dist 폴더 배포)
+  // Cloudflare Workers 배포 설정 (npm run build → dist 폴더 + 알림 서버)
   "name": "ttiring",
   "compatibility_date": "2026-10-01",
+  "main": "worker/index.js",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
+  },
+  // 매일 아침 알림: 15분마다 깨어나 그 시각인 사람에게만 보냅니다
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
+  // 알림 구독 보관함. id는 KV 네임스페이스를 만들면 받는 값으로 바꿔 주세요.
+  // (만들기 전에도 사이트는 정상 동작하고, 알림만 꺼진 상태가 됩니다)
+  "kv_namespaces": [
+    { "binding": "SUBS", "id": "PUT_YOUR_KV_NAMESPACE_ID_HERE" }
+  ],
+  "vars": {
+    "VAPID_PUBLIC_KEY": "BCLoNRR3ksQ3bpAeqvhcs7jLMM76EHZCefkyvmucqH_NtiZhf7vDtj7yORCP6iumYYq7NDZ--SUA-hKGdOExT3k",
+    "VAPID_SUBJECT": "mailto:han0829@gmail.com"
   }
+  // VAPID_PRIVATE_KEY는 비밀값으로 따로 넣습니다 (대시보드 또는 wrangler secret put)
 }

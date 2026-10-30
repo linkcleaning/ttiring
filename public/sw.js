@@ -2,7 +2,7 @@
 // - 페이지(HTML): 네트워크 우선 → 실패 시 캐시 (오프라인에서도 열림)
 // - JS·CSS·이미지·폰트: 캐시 우선 + 백그라운드 갱신
 // 배포할 때마다 VERSION을 올리면 이전 캐시가 정리됩니다.
-const VERSION = 'ttiring-v9';
+const VERSION = 'ttiring-v10';
 const NOTIFY_CACHE = 'ttiring-notify'; // 버전을 올려도 지우지 않는 알림 설정 보관함
 const PRECACHE = ['/', '/index.html', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/icons/favicon.png'];
 
@@ -26,6 +26,7 @@ self.addEventListener('fetch', (event) => {
   // 글꼴과 관상 분석기(MediaPipe wasm·모델)는 한 번 받아 두고 캐시해요
   const isFont = ['fonts.googleapis.com', 'fonts.gstatic.com', 'cdn.jsdelivr.net', 'storage.googleapis.com'].includes(url.hostname);
   if (!sameOrigin && !isFont) return;
+  if (sameOrigin && url.pathname.startsWith('/api/')) return; // 알림 구독은 캐시하지 않아요
 
   // 페이지 이동: 네트워크 우선
   if (request.mode === 'navigate') {
@@ -113,6 +114,39 @@ async function maybeNotify() {
     data: { url: '/' },
   });
 }
+
+// 서버가 보낸 푸시 — 아이폰에서 정해진 시각에 알림을 받는 유일한 길이에요.
+// 본문 없이 "깨워만" 주므로 문구는 여기서 만들어요.
+self.addEventListener('push', (event) => {
+  event.waitUntil((async () => {
+    const cfg = await readNotify();
+    await writeNotify({ ...cfg, last: todayKey() }); // 앱이 또 띄우지 않도록
+    await self.registration.showNotification('띠링! 오늘의 운세가 도착했어요', {
+      body: '내 띠 캐릭터가 오늘 점수를 기다리고 있어요.',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: 'ttiring-daily',
+      data: { url: '/' },
+    });
+  })());
+});
+
+// 구독이 바뀌면 서버에 다시 알려요
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async () => {
+    try {
+      const cfg = await readNotify();
+      const sub = event.newSubscription
+        || (await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: event.oldSubscription?.options?.applicationServerKey }));
+      if (!sub) return;
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ endpoint: sub.endpoint, hour: cfg.hour, minute: cfg.minute, tzOffset: -new Date().getTimezoneOffset() }),
+      });
+    } catch { /* 다음에 앱을 열 때 다시 맞춰져요 */ }
+  })());
+});
 
 self.addEventListener('periodicsync', (event) => {
   if (event.tag === 'ttiring-daily') event.waitUntil(maybeNotify());

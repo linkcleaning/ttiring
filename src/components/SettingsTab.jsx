@@ -7,7 +7,7 @@ import { birthLabel, personLabel, personYear } from '../lib/people.js';
 import ZodiacAvatar from './ZodiacAvatar.jsx';
 import { FunNotice, Sheet } from './ui.jsx';
 import { clearAllFaces, countFaces } from '../lib/faceStore.js';
-import { askPermission, loadNotify, notifyPermission, notifySupported, registerPeriodicSync, saveNotify, showNotification, syncConfigToSW } from '../lib/notify.js';
+import { disableNotify, enableNotify, isIOS, isStandalone, loadNotify, notifyBlockedReason, notifyPermission, registerPeriodicSync, saveNotify, showNotification, syncConfigToSW } from '../lib/notify.js';
 
 const pad = (n) => String(n).padStart(2, '0');
 const GROUPS = [
@@ -52,18 +52,40 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
   const [toDelete, setToDelete] = useState(null);
   const [notify, setNotify] = useState(loadNotify);
   const [perm, setPerm] = useState(notifyPermission);
+  const [mode, setMode] = useState(null); // 'push' 서버가 보내 줌 | 'local' 앱 열 때만
+  const [busy, setBusy] = useState(false);
   useEffect(() => { saveNotify(notify); syncConfigToSW(); }, [notify]);
 
   const toggleNotify = async (on) => {
-    if (!on) { setNotify({ ...notify, on: false }); return; }
-    if (!notifySupported()) { setSheet('noNotify'); return; }
-    let p = notifyPermission();
-    if (p === 'default') p = await askPermission();
-    setPerm(p);
-    if (p !== 'granted') { setSheet('noNotify'); return; }
+    if (busy) return;
+    if (!on) {
+      setNotify({ ...notify, on: false });
+      setMode(null);
+      disableNotify();
+      return;
+    }
+    if (notifyBlockedReason() === 'ios-not-installed') { setSheet('iosInstall'); return; }
+    setBusy(true);
+    const r = await enableNotify({ hour: notify.hour, minute: notify.minute });
+    setBusy(false);
+    setPerm(notifyPermission());
+    if (r === 'denied' || r === 'unsupported') { setSheet('noNotify'); return; }
     setNotify({ ...notify, on: true });
+    setMode(r);
     registerPeriodicSync();
-    showNotification('이렇게 알려 드릴게요. 매일 아침 잊지 않게요!');
+    showNotification(r === 'push'
+      ? '이렇게 알려 드릴게요. 내일 아침에 만나요!'
+      : '이렇게 생겼어요. 다만 지금은 앱을 열 때만 떠요.');
+    if (r === 'local') setSheet('localOnly');
+  };
+
+  /** 시각을 바꾸면 서버에도 다시 알려요 */
+  const changeTime = async (hour, minute) => {
+    setNotify({ ...notify, hour, minute });
+    if (notify.on) {
+      const r = await enableNotify({ hour, minute });
+      setMode(r === 'denied' || r === 'unsupported' ? null : r);
+    }
   };
   const me = people.find((x) => x.id === 'me') || profile;
   const y = personYear(me);
@@ -125,20 +147,26 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
       </Group>
 
       <Group title="알림">
-        <Toggle label="매일 아침 운세 알림" on={notify.on && perm === 'granted'} onChange={toggleNotify} />
+        <Toggle label={busy ? '알림 켜는 중…' : '매일 아침 운세 알림'} on={notify.on && perm === 'granted'} onChange={toggleNotify} />
         {notify.on && perm === 'granted' && (
           <label className="flex w-full items-center justify-between border-b border-line px-5 py-[15px] last:border-b-0">
             <span className="text-[16px]">알림 시각</span>
             <input type="time" value={`${String(notify.hour).padStart(2, '0')}:${String(notify.minute).padStart(2, '0')}`}
               onChange={(e) => {
                 const [h, m] = e.target.value.split(':').map(Number);
-                setNotify({ ...notify, hour: h, minute: m });
+                changeTime(h, m);
               }}
               className="rounded-lg bg-bg px-3 py-2 text-[16px] focus:outline-none focus:ring-2 focus:ring-ink" />
           </label>
         )}
         <p className="px-5 py-3 text-[12.5px] leading-relaxed text-sub">
-          알림은 이 기기 안에서만 울려요. 휴대폰이 꺼져 있거나 앱을 오래 열지 않으면 시각이 조금 밀릴 수 있어요.
+          {notify.on && mode === 'push'
+            ? '앱을 닫아 두어도 정한 시각에 알림이 와요. 최대 15분까지 늦을 수 있어요.'
+            : notify.on && mode === 'local'
+              ? '지금은 앱을 열었을 때만 떠요. 알림 서버가 아직 준비되지 않았어요.'
+              : isIOS() && !isStandalone()
+                ? '아이폰은 홈 화면에 추가한 뒤에야 알림을 받을 수 있어요. 사파리 공유 버튼 → 홈 화면에 추가.'
+                : '정한 시각에 알림을 보내 드려요. 최대 15분까지 늦을 수 있어요.'}
         </p>
       </Group>
 
@@ -173,6 +201,31 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
             </div>
           </>
         )}
+      </Sheet>
+
+      <Sheet open={sheet === 'iosInstall'} onClose={() => setSheet(null)} label="홈 화면에 추가해 주세요">
+        <h2 className="text-[19px] font-bold">홈 화면에 추가해 주세요</h2>
+        <p className="mt-2 text-[14.5px] leading-[1.75] text-sub">
+          아이폰은 사파리에서 그냥 열어 둔 상태로는 알림을 받을 수 없어요. 애플이 정한 규칙이라
+          앱에서 바꿀 수 없어요. 홈 화면에 추가해서 그 아이콘으로 열면 알림을 받을 수 있어요.
+        </p>
+        <ol className="mt-4 space-y-2 text-[14.5px] leading-[1.7]">
+          <li>1. 사파리 아래쪽 <b>공유 버튼</b>(네모에 위 화살표)을 누르세요</li>
+          <li>2. <b>홈 화면에 추가</b>를 고르고 <b>추가</b></li>
+          <li>3. 홈 화면에 생긴 <b>띠링</b> 아이콘으로 다시 들어오세요</li>
+          <li>4. 설정에서 알림을 켜면 돼요</li>
+        </ol>
+        <button type="button" onClick={() => setSheet(null)} className="mt-5 w-full rounded-2xl bg-ink py-4 text-[16px] font-semibold text-white">알겠어요</button>
+      </Sheet>
+
+      <Sheet open={sheet === 'localOnly'} onClose={() => setSheet(null)} label="지금은 앱을 열 때만 떠요">
+        <h2 className="text-[19px] font-bold">지금은 앱을 열 때만 떠요</h2>
+        <p className="mt-2 text-[14.5px] leading-[1.75] text-sub">
+          알림을 켜 두었지만, 알림을 보내 주는 서버가 아직 준비되지 않았어요.
+          그래서 정한 시각이 지난 뒤 <b>앱을 열 때</b> 그날의 알림이 떠요.
+          서버가 준비되면 앱을 닫아 두어도 제시간에 옵니다.
+        </p>
+        <button type="button" onClick={() => setSheet(null)} className="mt-5 w-full rounded-2xl bg-ink py-4 text-[16px] font-semibold text-white">알겠어요</button>
       </Sheet>
 
       <Sheet open={sheet === 'noNotify'} onClose={() => setSheet(null)} label="알림을 켤 수 없어요">
