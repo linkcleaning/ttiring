@@ -127,11 +127,19 @@ Worker: 15분마다 cron → KV를 훑어 "지금이 그 사람의 시각"인 �
 
 ### 알림 서버 켜기 (한 번만)
 
-KV와 비밀값이 없어도 사이트는 그대로 열리고 알림만 꺼진 상태가 됩니다. 켜려면 세 가지가 필요해요.
+KV와 비밀값이 없어도 **배포는 정상이고** 사이트도 그대로 열려요. 알림만 꺼진 상태가 됩니다. 켜려면 세 가지가 필요해요.
 
-1. **KV 네임스페이스 만들기** — Cloudflare 대시보드 → Storage & Databases → KV → Create → 이름 `ttiring-subs`. 만들어진 **Namespace ID**를 복사해 `wrangler.jsonc`의 `PUT_YOUR_KV_NAMESPACE_ID_HERE` 자리에 넣습니다.
-2. **비밀값 넣기** — Worker → Settings → Variables and Secrets → Add → `VAPID_PRIVATE_KEY` (Secret).
-3. **다시 배포** — GitHub에 올리면 자동으로 배포됩니다.
+1. **KV 네임스페이스 만들기** — Cloudflare 대시보드 → Storage & Databases → KV → Create → 이름 `ttiring-subs`. 만들어진 **Namespace ID**(32자리)를 복사합니다.
+2. **wrangler.jsonc에 붙이기** — `vars` 블록이 끝나는 `}` 뒤에 쉼표를 찍고 아래를 추가합니다.
+
+   ```jsonc
+   "kv_namespaces": [
+     { "binding": "SUBS", "id": "복사한_ID" }
+   ]
+   ```
+
+   ⚠️ **자리표시자인 채로 커밋하면 배포가 실패합니다.** wrangler가 배포 단계에서 KV ID가 실제로 있는지 확인하기 때문이에요. 그래서 기본 설정에는 이 블록을 아예 넣지 않았습니다.
+3. **비밀값 넣기** — Worker → Settings → Variables and Secrets → Add → `VAPID_PRIVATE_KEY` (Secret).
 
 VAPID 공개키는 `wrangler.jsonc`의 `vars`에 들어 있어요(공개키라 숨길 필요가 없습니다). 키를 새로 만들려면 아무 환경에서나 P-256 ECDSA 키쌍을 만들어 공개키는 raw(base64url), 개인키는 JWK의 `d` 값을 쓰면 됩니다.
 
