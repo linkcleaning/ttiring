@@ -10,7 +10,7 @@
 //
 //  설정(KV·비밀값)이 아직 없어도 홈페이지는 그대로 열리도록 만들었어요.
 // ─────────────────────────────────────────────────────────────
-import { sendPush } from './push.js';
+import { generateKeys, sendPush } from './push.js';
 
 const PREFIX = 'sub:';
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
@@ -18,7 +18,24 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
   headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
 });
 
-const ready = (env) => !!(env.SUBS && env.VAPID_PRIVATE_KEY && env.VAPID_PUBLIC_KEY);
+const ready = (env) => !!env.SUBS;
+
+// VAPID 키쌍은 서버가 처음 한 번 스스로 만들어 KV에 넣어 둬요.
+// 그래서 따로 비밀값을 넣어 줄 필요가 없고, 열쇠는 이 계정 밖으로 나가지 않아요.
+const KEYS_KEY = 'vapid:keys';
+async function getKeys(env) {
+  if (!env.SUBS) return null;
+  const saved = await env.SUBS.get(KEYS_KEY);
+  if (saved) {
+    try {
+      const k = JSON.parse(saved);
+      if (k?.publicKey && k?.d) return k;
+    } catch { /* 깨졌으면 새로 만들어요 */ }
+  }
+  const keys = await generateKeys();
+  await env.SUBS.put(KEYS_KEY, JSON.stringify(keys));
+  return keys;
+}
 
 /** 구독 하나를 KV 키로 (엔드포인트가 길어서 해시로 줄여요) */
 async function keyOf(endpoint) {
@@ -40,7 +57,8 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === '/api/push/key') {
-      return json({ key: env.VAPID_PUBLIC_KEY || null, ready: ready(env) });
+      const keys = await getKeys(env);
+      return json({ key: keys?.publicKey ?? null, ready: !!keys });
     }
 
     if (url.pathname === '/api/push/subscribe' && request.method === 'POST') {
@@ -75,13 +93,15 @@ export default {
 
   /** 15분마다 깨어나서, 지금이 알림 시각인 사람에게만 보내요 */
   async scheduled(event, env, ctx) {
-    if (!ready(env)) return;
+    const keys = await getKeys(env);
+    if (!keys) return;
     const WINDOW = 15; // 분
     let cursor;
     do {
       const list = await env.SUBS.list({ prefix: PREFIX, cursor, limit: 1000 });
       cursor = list.list_complete ? null : list.cursor;
       for (const { name } of list.keys) {
+        if (name === KEYS_KEY) continue;
         const raw = await env.SUBS.get(name);
         if (!raw) continue;
         let rec;
@@ -97,7 +117,7 @@ export default {
         const today = todayIn(rec.tzOffset);
         if (rec.sent === today) continue; // 오늘 이미 보냈어요
 
-        const r = await sendPush(rec.endpoint, env);
+        const r = await sendPush(rec.endpoint, keys, env.VAPID_SUBJECT);
         if (r.gone) {
           await env.SUBS.delete(name);
         } else if (r.ok) {

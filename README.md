@@ -125,23 +125,15 @@ Worker: 15분마다 cron → KV를 훑어 "지금이 그 사람의 시각"인 �
 - 404/410(구독 만료)이 오면 KV에서 지웁니다.
 - 푸시가 안 되는 환경(서버 미설정, 사파리 탭 등)에서는 **앱을 열었을 때** 그날 알림을 띄우는 쪽으로 물러서고, 화면에도 그렇게 적힙니다.
 
-### 알림 서버 켜기 (한 번만)
+### 알림 서버 설정
 
-KV와 비밀값이 없어도 **배포는 정상이고** 사이트도 그대로 열려요. 알림만 꺼진 상태가 됩니다. 켜려면 세 가지가 필요해요.
+필요한 건 **KV 네임스페이스 하나**뿐이고, 이미 연결돼 있어요 (`wrangler.jsonc`의 `kv_namespaces`).
 
-1. **KV 네임스페이스 만들기** — Cloudflare 대시보드 → Storage & Databases → KV → Create → 이름 `ttiring-subs`. 만들어진 **Namespace ID**(32자리)를 복사합니다.
-2. **wrangler.jsonc에 붙이기** — `vars` 블록이 끝나는 `}` 뒤에 쉼표를 찍고 아래를 추가합니다.
+VAPID 키쌍은 **서버가 처음 한 번 스스로 만들어 같은 KV(`vapid:keys`)에 넣어 둡니다.** 그래서 따로 넣어 줄 비밀값이 없고, 개인키가 저장소나 대시보드를 거치지 않아요. 한 번 만든 키는 그대로 유지되고(바뀌면 기존 구독이 깨지니까요), 혹시 키가 바뀌어 푸시가 403으로 거절되면 그 구독을 지워 앱이 다음에 열릴 때 다시 등록하게 합니다.
 
-   ```jsonc
-   "kv_namespaces": [
-     { "binding": "SUBS", "id": "복사한_ID" }
-   ]
-   ```
+KV를 새로 만들어 옮길 때는 `wrangler.jsonc`의 `id`만 바꾸면 됩니다. 이때 키와 구독이 함께 사라지므로, 각 기기에서 알림을 한 번씩 다시 켜야 해요.
 
-   ⚠️ **자리표시자인 채로 커밋하면 배포가 실패합니다.** wrangler가 배포 단계에서 KV ID가 실제로 있는지 확인하기 때문이에요. 그래서 기본 설정에는 이 블록을 아예 넣지 않았습니다.
-3. **비밀값 넣기** — Worker → Settings → Variables and Secrets → Add → `VAPID_PRIVATE_KEY` (Secret).
-
-VAPID 공개키는 `wrangler.jsonc`의 `vars`에 들어 있어요(공개키라 숨길 필요가 없습니다). 키를 새로 만들려면 아무 환경에서나 P-256 ECDSA 키쌍을 만들어 공개키는 raw(base64url), 개인키는 JWK의 `d` 값을 쓰면 됩니다.
+**주의 — `/api/*` 라우팅**: `not_found_handling`이 `single-page-application`이면 정적 파일 라우터가 없는 경로를 전부 `index.html`로 돌려보내서 Worker가 실행되지 않아요. `assets.run_worker_first: ["/api/*"]` 가 있어야 알림 API가 Worker로 들어옵니다 (Wrangler 4.20+).
 
 ## 홈 화면 위젯## 홈 화면 위젯
 

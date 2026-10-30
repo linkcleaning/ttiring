@@ -15,16 +15,15 @@
   "triggers": {
     "crons": ["*/15 * * * *"]
   },
+  // 푸시 서버가 연락처로 쓰는 값 (공개돼도 되는 정보예요)
   "vars": {
-    "VAPID_PUBLIC_KEY": "BCLoNRR3ksQ3bpAeqvhcs7jLMM76EHZCefkyvmucqH_NtiZhf7vDtj7yORCP6iumYYq7NDZ--SUA-hKGdOExT3k",
-    "VAPID_SUBJECT": "mailto:han0829@gmail.com"
+    "VAPID_SUBJECT": "https://ttiring.han0829.workers.dev"
   },
   // 알림 구독 보관함 (Workers KV: ttiring-subs)
   "kv_namespaces": [
     { "binding": "SUBS", "id": "efe327558b7b4791834566ba90b67442" }
   ]
 
-  // 남은 설정: Worker → Settings → Variables and Secrets 에서
-  //            Secret 으로 VAPID_PRIVATE_KEY 를 추가하면 알림이 켜집니다.
-  // VAPID 공개키는 공개해도 되는 값이라 위 vars에 그대로 두었습니다.
+  // 알림 열쇠(VAPID)는 서버가 처음 한 번 스스로 만들어 위 KV에 넣어 둡니다.
+  // 그래서 따로 넣어 줄 비밀값이 없고, 열쇠는 이 계정 밖으로 나가지 않아요.
 }
