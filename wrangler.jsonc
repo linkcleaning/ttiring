@@ -6,7 +6,10 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    // SPA 모드는 없는 경로를 전부 index.html로 돌려보내서 /api/* 까지 가로채요.
+    // 이 줄이 있어야 알림 API가 Worker로 들어옵니다. (Wrangler 4.20+)
+    "run_worker_first": ["/api/*"]
   },
   // 매일 아침 알림: 15분마다 깨어나 그 시각인 사람에게만 보냅니다
   "triggers": {
