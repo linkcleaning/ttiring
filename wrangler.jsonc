@@ -15,22 +15,13 @@
   "vars": {
     "VAPID_PUBLIC_KEY": "BCLoNRR3ksQ3bpAeqvhcs7jLMM76EHZCefkyvmucqH_NtiZhf7vDtj7yORCP6iumYYq7NDZ--SUA-hKGdOExT3k",
     "VAPID_SUBJECT": "mailto:han0829@gmail.com"
-  }
+  },
+  // 알림 구독 보관함 (Workers KV: ttiring-subs)
+  "kv_namespaces": [
+    { "binding": "SUBS", "id": "efe327558b7b4791834566ba90b67442" }
+  ]
 
-  // ── 알림을 켜려면 (지금은 알림만 꺼진 상태로 정상 배포됩니다) ──────────
-  //
-  // 1) Cloudflare 대시보드에서 KV 네임스페이스를 만들고(이름: ttiring-subs)
-  //    받은 Namespace ID를 아래 "여기에_ID" 자리에 넣은 뒤,
-  //    바로 위 "vars" 블록 끝의 } 뒤에 쉼표(,)를 찍고 아래 두 줄을 붙여 넣으세요.
-  //
-  //    "kv_namespaces": [
-  //      { "binding": "SUBS", "id": "여기에_ID" }
-  //    ]
-  //
-  //    ※ ID는 32자리 영문·숫자예요. 자리표시자인 채로 두면 배포가 실패합니다.
-  //
-  // 2) Worker → Settings → Variables and Secrets 에서 Secret 추가
-  //    이름: VAPID_PRIVATE_KEY
-  //
+  // 남은 설정: Worker → Settings → Variables and Secrets 에서
+  //            Secret 으로 VAPID_PRIVATE_KEY 를 추가하면 알림이 켜집니다.
   // VAPID 공개키는 공개해도 되는 값이라 위 vars에 그대로 두었습니다.
 }
