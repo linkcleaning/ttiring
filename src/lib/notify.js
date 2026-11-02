@@ -1,3 +1,4 @@
+import { inNativeApp, nativeDisableNotify, nativeEnableNotify } from './nativeBridge.js';
 // ─────────────────────────────────────────────────────────────
 //  매일 아침 알림
 //
@@ -90,6 +91,12 @@ export async function pushReady() {
  * @returns 'push' 서버 푸시로 받음 | 'local' 앱 열 때만 | 'denied' | 'unsupported'
  */
 export async function enableNotify(cfg) {
+  // 아이폰/안드로이드 앱 안이면 네이티브 알림으로 넘깁니다 (앱 안에서는 웹 푸시가 안 돼요)
+  if (inNativeApp()) {
+    nativeEnableNotify(cfg.hour, cfg.minute);
+    syncConfigToSW();
+    return 'native';
+  }
   if (!notifySupported()) return 'unsupported';
   if (notifyPermission() !== 'granted') {
     const p = await askPermission();
@@ -127,6 +134,11 @@ export async function enableNotify(cfg) {
 
 /** 알림 끄기: 서버에서 구독 지우기 */
 export async function disableNotify() {
+  if (inNativeApp()) {
+    nativeDisableNotify();
+    syncConfigToSW();
+    return;
+  }
   const endpoint = read('ttiring.push.endpoint', null);
   try {
     const reg = await navigator.serviceWorker.getRegistration();

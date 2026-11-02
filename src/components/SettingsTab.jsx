@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { inNativeApp, onNativeMessage } from '../lib/nativeBridge.js';
 import { ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { ANIMALS, HOURS, natalChart } from '../lib/saju.js';
 import { STEM_COLOR } from '../lib/fortune.js';
@@ -52,9 +53,25 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
   const [toDelete, setToDelete] = useState(null);
   const [notify, setNotify] = useState(loadNotify);
   const [perm, setPerm] = useState(notifyPermission);
+  // 아이폰/안드로이드 앱 안에서는 웹 알림 권한이 'granted'가 되지 않아요.
+  // 껍데기 앱이 보내 주는 답으로 판단합니다.
+  const native = inNativeApp();
+  const [nativeOk, setNativeOk] = useState(() => native && loadNotify().on);
+  const granted = native ? nativeOk : perm === 'granted';
   const [mode, setMode] = useState(null); // 'push' 서버가 보내 줌 | 'local' 앱 열 때만
   const [busy, setBusy] = useState(false);
   useEffect(() => { saveNotify(notify); syncConfigToSW(); }, [notify]);
+
+  useEffect(() => {
+    if (!native) return undefined;
+    return onNativeMessage((m) => {
+      if (m.type === 'notify:permission') { setNativeOk(!!m.ok); return; }
+      if (m.type !== 'notify:result') return;
+      if (m.off) { setNativeOk(false); return; }
+      setNativeOk(!!m.ok);
+      if (!m.ok) { setNotify((n) => ({ ...n, on: false })); setSheet('noNotify'); }
+    });
+  }, [native]);
 
   const toggleNotify = async (on) => {
     if (busy) return;
@@ -64,7 +81,7 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
       disableNotify();
       return;
     }
-    if (notifyBlockedReason() === 'ios-not-installed') { setSheet('iosInstall'); return; }
+    if (!inNativeApp() && notifyBlockedReason() === 'ios-not-installed') { setSheet('iosInstall'); return; }
     setBusy(true);
     const r = await enableNotify({ hour: notify.hour, minute: notify.minute });
     setBusy(false);
@@ -73,9 +90,11 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
     setNotify({ ...notify, on: true });
     setMode(r);
     registerPeriodicSync();
-    showNotification(r === 'push'
-      ? '이렇게 알려 드릴게요. 내일 아침에 만나요!'
-      : '이렇게 생겼어요. 다만 지금은 앱을 열 때만 떠요.');
+    if (r !== 'native') {
+      showNotification(r === 'push'
+        ? '이렇게 알려 드릴게요. 내일 아침에 만나요!'
+        : '이렇게 생겼어요. 다만 지금은 앱을 열 때만 떠요.');
+    }
     if (r === 'local') setSheet('localOnly');
   };
 
@@ -147,8 +166,8 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
       </Group>
 
       <Group title="알림">
-        <Toggle label={busy ? '알림 켜는 중…' : '매일 아침 운세 알림'} on={notify.on && perm === 'granted'} onChange={toggleNotify} />
-        {notify.on && perm === 'granted' && (
+        <Toggle label={busy ? '알림 켜는 중…' : '매일 아침 운세 알림'} on={notify.on && granted} onChange={toggleNotify} />
+        {notify.on && granted && (
           <label className="flex w-full items-center justify-between border-b border-line px-5 py-[15px] last:border-b-0">
             <span className="text-[16px]">알림 시각</span>
             <input type="time" value={`${String(notify.hour).padStart(2, '0')}:${String(notify.minute).padStart(2, '0')}`}
@@ -160,7 +179,9 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
           </label>
         )}
         <p className="px-5 py-3 text-[12.5px] leading-relaxed text-sub">
-          {notify.on && mode === 'push'
+          {notify.on && mode === 'native'
+            ? '앱을 닫아 두어도 정한 시각에 알림이 와요.'
+            : notify.on && mode === 'push'
             ? '앱을 닫아 두어도 정한 시각에 알림이 와요. 최대 15분까지 늦을 수 있어요.'
             : notify.on && mode === 'local'
               ? '지금은 앱을 열었을 때만 떠요. 알림 서버가 아직 준비되지 않았어요.'
