@@ -71,15 +71,28 @@ export function readLetters(name) {
   });
 }
 
+// ── 조사 붙이기 (받침 유무에 따라) ──────────────────────────
+/** 한글 한 글자에 받침이 있는지 */
+function hasJong(ch) {
+  const c = (ch || '').charCodeAt(0) - 0xac00;
+  return c >= 0 && c < 11172 && c % 28 !== 0;
+}
+/** 목/화/토/금/수 같은 낱말 뒤에 맞는 조사를 골라 줍니다 */
+const josa = (word, withJong, noJong) => (hasJong(word) ? withJong : noJong);
+const eul = (w) => `${w}${josa(w, '을', '를')}`;          // 목을 / 화를
+const euro = (w) => `${w}${josa(w, '으로', '로')}`;        // 목으로 / 화로
+/** 괄호 표기(목(木))에도 쓸 수 있게, 읽는 글자로 판정합니다 */
+const yeyo = (label, bare) => `${label}${josa(bare, '이에요', '예요')}`;
+
 // ── 오행 흐름 ───────────────────────────────────────────────
 const gen = (a, b) => (a + 1) % 5 === b;   // a가 b를 낳음 (상생)
 const ctrl = (a, b) => (a + 2) % 5 === b;  // a가 b를 이김 (상극)
 
 const PAIR_TEXT = {
   상생: (a, b) => `${EL1[a]}생${EL1[b]}(${EL1[a]}生${EL1[b]}) — 앞 소리가 뒤 소리를 밀어 줘요. 말이 매끄럽게 이어지고 기운이 끊기지 않아요.`,
-  설기: (a, b) => `${EL1[b]}생${EL1[a]}을 거꾸로 받는 자리예요. 뒤 소리가 앞 소리를 받쳐 주니 나쁘진 않지만, 힘이 뒤로 쏠려요.`,
+  설기: (a, b) => `${EL1[b]}생${eul(EL1[a])} 거꾸로 받는 자리예요. 뒤 소리가 앞 소리를 받쳐 주니 나쁘진 않지만, 힘이 뒤로 쏠려요.`,
   상극: (a, b) => `${EL1[a]}극${EL1[b]}(${EL1[a]}剋${EL1[b]}) — 앞 소리가 뒤 소리를 누르는 자리예요. 추진력은 붙지만 이어짐이 한 번 끊겨요.`,
-  피극: (a, b) => `${EL1[b]}극${EL1[a]}로 앞 소리가 눌리는 자리예요. 겉보다 속에서 버티는 힘을 쓰게 돼요.`,
+  피극: (a, b) => `${EL1[b]}극${euro(EL1[a])} 앞 소리가 눌리는 자리예요. 겉보다 속에서 버티는 힘을 쓰게 돼요.`,
   비화: (a) => `같은 ${EL1[a]} 소리가 겹쳤어요. 성향이 또렷해지는 대신 한쪽으로 쏠리기 쉬워요.`,
 };
 
@@ -193,7 +206,7 @@ export function readName(name, ctx = null, opts = {}) {
     const yong = an.yongsin;
     const has = nameCount[yong] > 0;
     cross.push(has
-      ? `사주에서 가장 필요한 기운은 ${EL_KO[yong]}이에요. 마침 이름 안에 ${EL1[yong]} 소리가 ${nameCount[yong]}자 들어 있어요. 부르는 소리가 모자란 기운을 하루에도 몇 번씩 채워 주는 셈이라, 성명학에서 가장 반기는 짜임입니다.`
+      ? `사주에서 가장 필요한 기운은 ${yeyo(EL_KO[yong], EL1[yong])}. 마침 이름 안에 ${EL1[yong]} 소리가 ${nameCount[yong]}자 들어 있어요. 부르는 소리가 모자란 기운을 하루에도 몇 번씩 채워 주는 셈이라, 성명학에서 가장 반기는 짜임입니다.`
       : `사주에서 가장 필요한 기운은 ${EL_KO[yong]}인데, 이름에는 ${EL1[yong]} 소리가 없어요. ${EL_SOUND[yong].letters} 소리가 그 자리를 맡는데, 별명이나 상호처럼 자주 불리는 이름에 그 소리를 한 번 섞으면 보탬이 됩니다.`);
 
     const minC = Math.min(...counts);
@@ -222,7 +235,7 @@ export function readName(name, ctx = null, opts = {}) {
     nameCount,
     main,
     missing,
-    mainText: `이름 전체를 이끄는 소리는 ${EL_KO[main]}이에요. ${EL_TRAIT[main]}`,
+    mainText: `이름 전체를 이끄는 소리는 ${yeyo(EL_KO[main], EL1[main])}. ${EL_TRAIT[main]}`,
     cross,
     gyeok,
     total: Math.round(flow.score * 0.7 + (yy.balanced ? 100 : 55) * 0.3),

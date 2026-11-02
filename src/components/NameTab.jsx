@@ -36,8 +36,12 @@ export default function NameTab({ profile, people = [], activeId, onSelectPerson
   const [open, setOpen] = useState(false);          // 한자 획수 입력 펼침
   const [sur, setSur] = useState('');
   const [given, setGiven] = useState(['', '']);
+  const [guest, setGuest] = useState('');           // 등록 없이 이름만 보는 사람
+  const [draft, setDraft] = useState('');
 
-  const name = (profile.name || '').trim();
+  const ownName = (profile.name || '').trim();
+  const isGuest = guest.length > 0;
+  const name = isGuest ? guest : ownName;
 
   const manse = useMemo(() => {
     try { return manseryeok(profile); } catch { return null; }
@@ -45,9 +49,18 @@ export default function NameTab({ profile, people = [], activeId, onSelectPerson
 
   const reading = useMemo(() => {
     if (!name) return null;
-    const ctx = manse ? { analysis: manse.analysis, pillars: manse.pillars } : null;
+    // 손님 이름은 생년월일을 모르니 사주 교차 없이 이름만 봅니다
+    const ctx = !isGuest && manse ? { analysis: manse.analysis, pillars: manse.pillars } : null;
     return readName(name, ctx);
-  }, [name, manse]);
+  }, [name, isGuest, manse]);
+
+  const clearGuest = () => { setGuest(''); setDraft(''); setSur(''); setGiven(['', '']); };
+  const submitGuest = (e) => {
+    e.preventDefault();
+    const v = draft.trim();
+    if (!v) return;
+    setGuest(v); setSur(''); setGiven(['', '']);
+  };
 
   const gyeok = useMemo(() => {
     const s = Number(sur);
@@ -59,15 +72,47 @@ export default function NameTab({ profile, people = [], activeId, onSelectPerson
     <div className="pb-6 pt-1">
       {onSelectPerson && (
         <div className="mb-3">
-          <PersonBar people={people} activeId={activeId ?? profile.id} onSelect={onSelectPerson} onAdd={onAddPerson} />
+          <PersonBar people={people} activeId={isGuest ? null : (activeId ?? profile.id)}
+            onSelect={(id) => { clearGuest(); onSelectPerson(id); }} onAdd={onAddPerson} />
         </div>
       )}
+
+      {/* 등록 없이 이름만 풀어 보기 */}
+      <section className="mb-3 rounded-[18px] border border-line bg-card px-4 py-3.5">
+        {isGuest ? (
+          <div className="flex items-center gap-3">
+            <p className="min-w-0 flex-1 text-[14px] leading-snug">
+              <b className="font-bold">{guest}</b> 님 이름만 보고 있어요
+            </p>
+            <button type="button" onClick={clearGuest}
+              className="shrink-0 rounded-full bg-bg px-3 py-1.5 text-[13px] font-semibold text-sub">
+              {ownName ? '내 이름으로' : '지우기'}
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={submitGuest}>
+            <p className="text-[13px] leading-snug text-sub">
+              생년월일·태어난 시간 없이, <b className="font-semibold text-ink">이름만</b> 넣어도 봐 드려요
+            </p>
+            <div className="mt-2.5 flex gap-2">
+              <input value={draft} onChange={(e) => setDraft(e.target.value.slice(0, 10))}
+                placeholder="이름 (예: 김하늘)" aria-label="풀어 볼 이름"
+                className="min-w-0 flex-1 rounded-xl bg-bg px-3.5 py-2.5 text-[16px] focus:outline-none focus:ring-2 focus:ring-ink" />
+              <button type="submit" disabled={!draft.trim()}
+                className="shrink-0 rounded-xl bg-ink px-4 py-2.5 text-[15px] font-semibold text-white disabled:opacity-30">
+                풀기
+              </button>
+            </div>
+          </form>
+        )}
+      </section>
 
       {!name ? (
         <Card className="text-center">
           <h2 className="text-[19px] font-bold">이름이 없어요</h2>
           <p className="mt-2 text-[14.5px] leading-[1.75] text-sub">
-            이름 풀이는 한글 이름의 첫소리로 봅니다. 설정에서 이름을 넣어 주시면 바로 풀어 드려요.
+            이름 풀이는 한글 이름의 첫소리로 봅니다. 위 칸에 이름만 적어도 바로 볼 수 있고,
+            내 이름으로 계속 보시려면 설정에서 넣어 주세요.
           </p>
           <button type="button" onClick={onEditPerson}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-ink py-4 text-[16px] font-semibold text-white">
@@ -83,7 +128,7 @@ export default function NameTab({ profile, people = [], activeId, onSelectPerson
           {/* 이름 글자판 */}
           <section className="reveal rounded-[22px] border-[1.5px] border-ink bg-card p-5">
             <p className="text-[13px] text-sub">
-              {profile.id === 'me' ? '내 이름' : `${personLabel(profile)}님의 이름`} · 발음오행
+              {isGuest ? `${guest}님의 이름` : (profile.id === 'me' ? '내 이름' : `${personLabel(profile)}님의 이름`)} · 발음오행
             </p>
             <div className="mt-3 flex flex-wrap items-start justify-center gap-3">
               {reading.letters.map((l, i) => <Letter key={`${l.ch}-${i}`} l={l} big />)}
@@ -150,7 +195,16 @@ export default function NameTab({ profile, people = [], activeId, onSelectPerson
             <p className="text-[14.5px] leading-[1.8] text-[#3a3a42]">{reading.yinYang.text}</p>
           </Card>
 
-          {reading.cross.length > 0 && (
+          {isGuest && (
+            <Card title="사주 × 이름" right={<span className="text-[12px] text-sub">생년월일 필요</span>} delay={160}>
+              <p className="text-[15px] leading-[1.85] text-[#3a3a42]">
+                생년월일을 모르니 사주와 맞춰 보는 풀이는 뺐어요. 위 내용은 이름 소리만 가지고 본 것입니다.
+                사주까지 같이 보고 싶으면 위 캐릭터 줄의 <b className="font-semibold">＋ 추가</b>로 등록해 주세요.
+              </p>
+            </Card>
+          )}
+
+          {!isGuest && reading.cross.length > 0 && (
             <Card title="사주 × 이름" right={<span className="text-[12px] text-sub">채워 주는 기운</span>} delay={160}>
               <div className="space-y-3">
                 {reading.cross.map((c, i) => (
