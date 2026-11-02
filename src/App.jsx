@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowUp, CalendarDays, House, ScanFace, ScrollText, Settings } from 'lucide-react';
+import { ArrowUp, House, ScanFace, ScrollText, Settings, Type } from 'lucide-react';
 import Onboarding, { toProfile } from './components/Onboarding.jsx';
 import HomeTab from './components/HomeTab.jsx';
 import ManseTab from './components/ManseTab.jsx';
-import MonthCalendar from './components/MonthCalendar.jsx';
 import FaceTab from './components/FaceTab.jsx';
+import NameTab from './components/NameTab.jsx';
 import SettingsTab from './components/SettingsTab.jsx';
 import { TermContext, TermSheet, TopBar } from './components/ui.jsx';
 import { migrateProfile, personLabel, personYear } from './lib/people.js';
@@ -32,7 +32,7 @@ const TABS = [
   { key: 'home', label: '홈', icon: House, title: '홈' },
   { key: 'face', label: '관상', icon: ScanFace, title: '관상 보기' },
   { key: 'manse', label: '만세력', icon: ScrollText, title: '나의 만세력' },
-  { key: 'calendar', label: '달력', icon: CalendarDays, title: '운세 달력' },
+  { key: 'name', label: '이름', icon: Type, title: '이름 풀이' },
   { key: 'settings', label: '설정', icon: Settings, title: '설정' },
 ];
 
@@ -51,7 +51,7 @@ export default function App() {
   const [tab, setTab] = useState(() => {
     try {
       const v = new URLSearchParams(window.location.search).get('view');
-      return ['home', 'face', 'manse', 'calendar', 'settings'].includes(v) ? v : 'home';
+      return ['home', 'face', 'manse', 'name', 'settings'].includes(v) ? v : 'home';
     } catch {
       return 'home';
     }
@@ -142,7 +142,7 @@ export default function App() {
               setDrawn(next); save(KEYS.drawn, next);
             }}
             dateOffset={dateOffset} setDateOffset={setDateOffset}
-            onOpenCalendar={() => go('calendar')} toast={toast} />
+            toast={toast} />
         )}
         {tab === 'face' && (
           <FaceTab key={profile.id} profile={profile} dateOffset={dateOffset} toast={toast}
@@ -150,14 +150,11 @@ export default function App() {
             onAddPerson={() => setEditing({ mode: 'add', person: null })} />
         )}
         {tab === 'manse' && <ManseTab key={profile.id} profile={profile} />}
-        {tab === 'calendar' && (
-          <div className="pb-6 pt-1">
-            <MonthCalendar key={profile.id} input={profile} zodiac={personYear(profile)}
-              onOpenDay={(off) => { setDateOffset(off); go('home'); }} />
-            <p className="mt-3 px-1 text-[12px] leading-relaxed text-faint">
-              날짜를 누르면 그날의 점수와 한마디가 나와요. 아이콘은 특별한 기운이 드는 날이에요. 낮은 점수의 날도 그냥 조금 조심하자는 뜻일 뿐, 약속이나 일정을 운세 때문에 바꿀 필요는 없어요.
-            </p>
-          </div>
+        {tab === 'name' && (
+          <NameTab key={profile.id} profile={profile}
+            people={people} activeId={profile.id} onSelectPerson={selectPerson}
+            onAddPerson={() => setEditing({ mode: 'add', person: null })}
+            onEditPerson={() => setEditing({ mode: profile.id === 'me' ? 'edit' : 'add', person: profile })} />
         )}
         {tab === 'settings' && (
           <SettingsTab profile={profile} settings={settings} setSettings={setSettings}

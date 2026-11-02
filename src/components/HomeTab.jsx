@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Briefcase, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Coins, Heart, HeartPulse, Lightbulb,
+  Briefcase, ChevronDown, ChevronLeft, ChevronRight, Coins, Heart, HeartPulse, Lightbulb,
   Download, PencilLine, Share2, Sparkles, X,
 } from 'lucide-react';
 import { computeFortune } from '../lib/saju.js';
@@ -10,10 +10,9 @@ import { unlockAudio } from '../lib/sound.js';
 import ZodiacAvatar, { moodOf } from './ZodiacAvatar.jsx';
 import DrawMachine from './DrawMachine.jsx';
 import Hexagram from './Hexagram.jsx';
-import { Card, FunNotice, Term } from './ui.jsx';
+import { Card, FunNotice, Term, scoreTone } from './ui.jsx';
 import PersonBar from './PersonBar.jsx';
 import { personLabel } from '../lib/people.js';
-import { scoreTone } from './MonthCalendar.jsx';
 
 const CAT = {
   사업: { icon: Briefcase, label: '커리어운', color: '#2F4FB5' },
@@ -75,7 +74,7 @@ function CategoryCard({ item, delay }) {
   );
 }
 
-export default function HomeTab({ profile, soundOn, people, activeId, onSelectPerson, onAddPerson, onEditPerson, drawnDate, onDrawn, dateOffset, setDateOffset, onOpenCalendar, toast }) {
+export default function HomeTab({ profile, soundOn, people, activeId, onSelectPerson, onAddPerson, onEditPerson, drawnDate, onDrawn, dateOffset, setDateOffset, toast }) {
   const date = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + dateOffset);
@@ -146,10 +145,6 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
         </p>
         <button type="button" onClick={onEditPerson} aria-label="정보 수정"
           className="rounded-xl border border-line bg-card p-2.5 text-sub"><PencilLine size={18} /></button>
-        <button type="button" onClick={onOpenCalendar} aria-label="운세 달력"
-          className="rounded-xl border border-line bg-card p-2.5 text-ink">
-          <CalendarDays size={20} />
-        </button>
       </div>
 
       {/* 날짜 이동 */}
@@ -166,7 +161,9 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
             <button type="button" onClick={() => setDateOffset(0)} className="mt-1 rounded-full bg-ink px-3 py-0.5 text-[12px] text-white">오늘로</button>
           )}
         </div>
-        <button type="button" onClick={() => setDateOffset((o) => o + 1)} aria-label="다음날" className="rounded-full p-2 text-sub">
+        <button type="button" onClick={() => setDateOffset((o) => Math.min(0, o + 1))}
+          disabled={dateOffset >= 0} aria-label="다음날"
+          className="rounded-full p-2 text-sub disabled:opacity-25" title={dateOffset >= 0 ? '내일 운세는 내일 볼 수 있어요' : undefined}>
           <ChevronRight size={22} />
         </button>
       </div>

@@ -60,10 +60,10 @@
       ]
     },
     {
-      "name": "운세 달력",
-      "short_name": "달력",
-      "description": "이번 달 날짜별 점수를 한눈에",
-      "url": "/?view=calendar",
+      "name": "이름 풀이",
+      "short_name": "이름",
+      "description": "내 이름의 발음오행과 사주 궁합",
+      "url": "/?view=name",
       "icons": [
         {
           "src": "/icons/icon-192.png",

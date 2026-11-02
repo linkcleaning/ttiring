@@ -98,3 +98,7 @@ export function FunNotice({ compact = false }) {
     </aside>
   );
 }
+
+/** 점수에 따른 색 (홈·이름 풀이에서 같이 써요) */
+export const scoreTone = (s) =>
+  (s >= 80 ? { fg: '#2563EB', bg: '#E7EFFE' } : s >= 60 ? { fg: '#D97706', bg: '#FDF1DE' } : { fg: '#DC3B2F', bg: '#FDE8E6' });
