@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { yeyo } from '../lib/josa.js';
 import {
   Briefcase, ChevronDown, ChevronLeft, ChevronRight, Coins, Heart, HeartPulse, Lightbulb,
   Download, PencilLine, Share2, Sparkles, X,
@@ -233,7 +234,7 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
             </ul>
             <p className="mt-3 rounded-xl bg-bg px-3 py-2 text-[12.5px] leading-relaxed text-sub">
               내 사주는 <Term name={r.analysis.strong ? '신강' : '신약'} className="font-semibold text-ink">{r.analysis.label}</Term>,{' '}
-              <Term name="용신" className="font-semibold text-ink">용신</Term>은 {['목(木)', '화(火)', '토(土)', '금(金)', '수(水)'][r.analysis.yongsin]}이에요.
+              <Term name="용신" className="font-semibold text-ink">용신</Term>은 {yeyo(['목(木)', '화(火)', '토(土)', '금(金)', '수(水)'][r.analysis.yongsin])}.
               이 기운이 들어오는 날 점수가 올라가요.
             </p>
           </Card>

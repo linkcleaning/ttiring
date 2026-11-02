@@ -152,20 +152,67 @@ export const CITY_GROUPS = [
 export const CITIES = CITY_GROUPS.flatMap(([, list]) => list);
 
 // 한국 표준시 변천: 1954.3.21~1961.8.9 동경 127.5°(UTC+8:30), 그 외 135°(UTC+9)
-// 서머타임: 1987.5.10~10.11, 1988.5.8~10.9 (1시간 앞당김) — 그 이전 시기는 연도별 기록이 엇갈려 반영하지 않음
-function clockOffsetMinutes(y, m, d) {
+// 서머타임: 1948~1951, 1955~1960, 1987~1988 (1시간 앞당김)
+// 날짜가 해마다 달라서 손으로 적는 대신, 기기에 들어 있는 표준 시간대 자료(IANA tzdb)에서 읽어 옵니다.
+let tzFmt;
+function tzOffsetFromSystem(t) {
+  try {
+    if (tzFmt === undefined) {
+      tzFmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Seoul', hour12: false,
+        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+      });
+      // 과거 자료가 실려 있는지 확인 (1955-07-01은 UTC+9:30이어야 함)
+      if (tzOffsetFromSystem(Date.UTC(1955, 6, 1, 3)) !== 570) tzFmt = null;
+    }
+    if (!tzFmt) return null;
+    const p = tzFmt.formatToParts(new Date(t));
+    const g = (k) => Number(p.find((x) => x.type === k).value);
+    const local = Date.UTC(g('year'), g('month') - 1, g('day'), g('hour') % 24, g('minute'));
+    return Math.round((local - t) / 60000);
+  } catch { tzFmt = null; return null; }
+}
+
+/** 손으로 적어 둔 표 (기기에 과거 시간대 자료가 없을 때만 씁니다) */
+const DST_RANGES = [
+  [1948, 6, 1, 9, 13], [1949, 4, 3, 9, 11], [1950, 4, 1, 9, 10], [1951, 5, 6, 9, 9],
+  [1955, 5, 5, 9, 9], [1956, 5, 20, 9, 30], [1957, 5, 5, 9, 22], [1958, 5, 4, 9, 21],
+  [1959, 5, 3, 9, 20], [1960, 5, 1, 9, 18], [1987, 5, 10, 10, 11], [1988, 5, 8, 10, 9],
+];
+function clockOffsetFallback(y, m, d) {
   const t = Date.UTC(y, m - 1, d);
   let off = t >= Date.UTC(1954, 2, 21) && t < Date.UTC(1961, 7, 10) ? 510 : 540;
-  const dst = [[1987, 5, 10, 10, 11], [1988, 5, 8, 10, 9]];
-  for (const [yy, m1, d1, m2, d2] of dst) {
+  for (const [yy, m1, d1, m2, d2] of DST_RANGES) {
     if (y === yy && t >= Date.UTC(yy, m1 - 1, d1) && t < Date.UTC(yy, m2 - 1, d2)) off += 60;
   }
   return off;
 }
 
+function clockOffsetMinutes(y, m, d) {
+  // 정오 기준으로 묻습니다 (서머타임 시작·종료는 새벽이라 하루 단위로는 영향 없음)
+  const sys = tzOffsetFromSystem(Date.UTC(y, m - 1, d, 3));
+  return sys ?? clockOffsetFallback(y, m, d);
+}
+
+/**
+ * 균시차(분). 진태양시 − 평균태양시.
+ * 지구 궤도가 타원이고 자전축이 기울어 있어서 해가 남중하는 시각이 날마다 −14~+16분 흔들려요.
+ */
+export function equationOfTime(utcMs) {
+  const T = (utcMs / DAY + 2440587.5 - 2451545) / 36525;
+  const L0 = mod(280.46646 + 36000.76983 * T + 0.0003032 * T * T, 360); // 태양 평균 황경
+  const lam = sunLongitude(utcMs);                                      // 겉보기 황경
+  const eps = 23.439291 - 0.0130042 * T;                                // 황도 경사
+  const ra = mod(Math.atan2(Math.cos(eps * RAD) * Math.sin(lam * RAD), Math.cos(lam * RAD)) / RAD, 360);
+  let e = L0 - 0.0057183 - ra;
+  e = mod(e + 180, 360) - 180;
+  return e * 4;
+}
+
 /**
  * 출생 순간을 계산
- * @returns utcMs(실제 순간), solarMinutes(진태양시 0~1439), dateShift(-1/0/+1: 진태양시 날짜 이동)
+ * 진태양시 = 시계 시각 − 서머타임 − (표준 경도 − 출생지 경도) × 4분 + 균시차
+ * @returns utcMs(실제 순간), solarMinutes(진태양시 0~1439), dateShift(-1/0/+1), 보정 내역
  */
 export function birthMoment(y, m, d, hhmm, lon) {
   const off = clockOffsetMinutes(y, m, d);
@@ -174,11 +221,18 @@ export function birthMoment(y, m, d, hhmm, lon) {
   const clock = h * 60 + mi;
   const utcMs = Date.UTC(y, m - 1, d) + (clock - off) * 60000;
   const useLon = lon ?? 127.5;
-  // 진태양시 = 시계 시각 - (표준 경도 - 출생지 경도) × 4분
   const meridian = off === 510 || off === 570 ? 127.5 : 135;
   const dstShift = off - (meridian === 127.5 ? 510 : 540);
-  const solar = clock - dstShift - (meridian - useLon) * 4;
-  return { utcMs, hasTime, solarMinutes: mod(solar, 1440), dateShift: Math.floor(solar / 1440) };
+  const lonAdj = -(meridian - useLon) * 4;   // 경도 보정 (동경 135도 기준이면 보통 −30분 안팎)
+  const eotAdj = equationOfTime(utcMs);      // 균시차 (−14 ~ +16분)
+  const solar = clock - dstShift + lonAdj + eotAdj;
+  const solarMinutes = mod(solar, 1440);
+  // 시지 경계(홀수 시 정각)까지 몇 분 남았는지 — 경계에 바싹 붙으면 화면에서 알려 줍니다
+  const edge = Math.min(mod(solarMinutes + 60, 120), 120 - mod(solarMinutes + 60, 120));
+  return {
+    utcMs, hasTime, solarMinutes, dateShift: Math.floor(solar / 1440),
+    dstShift, lonAdj, eotAdj, meridian, edgeMinutes: edge,
+  };
 }
 
 /** 진태양시(분) → 시지. 자시 23:00~01:00 */

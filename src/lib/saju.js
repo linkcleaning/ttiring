@@ -176,6 +176,11 @@ export function natalChart(input) {
     solar, lunar, dayDate, pillars, hour, hasTime, lon,
     moment: mo.utcMs,
     solarMinutes: hasTime ? Math.round(mo.solarMinutes) : null,
+    // 보정 내역 (화면에서 "왜 이 시간이 됐는지" 보여 주려고)
+    adj: hasTime ? {
+      dst: mo.dstShift, lon: Math.round(mo.lonAdj), eot: Math.round(mo.eotAdj),
+      meridian: mo.meridian, edge: Math.round(mo.edgeMinutes),
+    } : null,
   };
   natalCache.set(key, out);
   return out;

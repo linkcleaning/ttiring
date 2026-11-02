@@ -82,7 +82,7 @@ export default function NameTab({ profile, people = [], activeId, onSelectPerson
         {isGuest ? (
           <div className="flex items-center gap-3">
             <p className="min-w-0 flex-1 text-[14px] leading-snug">
-              <b className="font-bold">{guest}</b> 님 이름만 보고 있어요
+              <b className="font-bold">{guest}</b>님 이름만 보고 있어요
             </p>
             <button type="button" onClick={clearGuest}
               className="shrink-0 rounded-full bg-bg px-3 py-1.5 text-[13px] font-semibold text-sub">
@@ -259,13 +259,21 @@ export default function NameTab({ profile, people = [], activeId, onSelectPerson
                         </span>
                       </div>
                     ))}
+                    {gyeok.single && (
+                      <p className="mt-2 rounded-xl bg-[#FFF6E5] px-3 py-2 text-[12px] leading-relaxed text-[#8a6212]">
+                        외자 이름이라 형격·이격·정격이 같은 수가 됐어요. 유파에 따라 가수(假數) 1을 더해 가르기도 합니다.
+                      </p>
+                    )}
                     <p className="mt-2 text-[12px] leading-relaxed text-faint">
-                      81을 넘는 수는 81로 나눈 나머지로 봅니다. 길흉 분류는 전통 수리성명학에서 길수로 꼽는 수를 따랐어요.
+                      81을 넘는 수는 81씩 빼서 봅니다. 길흉은 유파마다 갈려서,
+                      여러 유파가 공통으로 길수로 꼽는 수만 <b className="text-sub">길</b>,
+                      공통으로 흉수로 꼽는 수만 <b className="text-sub">주의</b>로 두고
+                      나머지는 <b className="text-sub">중간</b>으로 뒀어요. 그래서 ‘중간’이 꽤 많습니다.
                     </p>
                   </div>
                 ) : (
                   <p className="mt-4 rounded-2xl bg-bg px-4 py-3 text-[13.5px] leading-relaxed text-sub">
-                    성과 이름 첫 글자 획수를 넣으면 4격이 나와요.
+                    성과 이름 획수를 넣으면 4격이 나와요. 외자 이름은 ‘이름 1’만 채우면 됩니다.
                   </p>
                 )}
               </div>

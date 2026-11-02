@@ -4,7 +4,7 @@ import { computeFortune, manseryeok } from '../lib/saju.js';
 import {
   CAM_ERR, FACE_ERR, cameraSupported, captureFrame, closeCamera, detectFace, fileToImage, openCamera,
 } from '../lib/faceModel.js';
-import { faceContext, faceMarkers, faceQuality, measureFace, readFace } from '../lib/gwansang.js';
+import { faceContext, faceMarkers, faceQuality, measureFace, mergeMeasures, readFace } from '../lib/gwansang.js';
 import { Card, FunNotice, Term } from './ui.jsx';
 import PersonBar from './PersonBar.jsx';
 import { Sheet } from './ui.jsx';
@@ -138,14 +138,24 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
     setReady(false);
   }, []);
 
-  const analyse = useCallback(async (shot) => {
+  /**
+   * @param shot 대표 사진 한 장 (화면에 보여 줄 용도)
+   * @param extra 같은 순간에 더 찍어 둔 사진들 — 수치를 여러 장에서 재서 중앙값을 씁니다
+   */
+  const analyse = useCallback(async (shot, extra = []) => {
     setPhoto(shot.dataUrl);
     setPhase('scanning');
     setStep(0);
     const started = Date.now();
     try {
       const pts = await detectFace(shot.canvas);
-      const measures = measureFace(pts);
+      const all = [measureFace(pts)];
+      // 나머지 장은 실패해도 그냥 넘어갑니다 (한 장만 성공해도 결과는 나와요)
+      for (const c of extra) {
+        try { all.push(measureFace(await detectFace(c))); } catch { /* 이 장은 건너뜀 */ }
+        if (!aliveRef.current) return;
+      }
+      const measures = mergeMeasures(all);
       const markers = faceMarkers(pts);
       const quality = faceQuality(pts);
       await new Promise((r) => setTimeout(r, Math.max(0, 2600 - (Date.now() - started))));
@@ -184,11 +194,18 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
     }
   }, [stopCam]);
 
-  const shoot = useCallback(() => {
+  const shoot = useCallback(async () => {
     try {
       const shot = captureFrame(videoRef.current, ASPECT);
+      // 같은 자세에서 몇 장 더 모읍니다 (좌표 떨림을 중앙값으로 걸러내려고)
+      const extra = [];
+      for (let i = 0; i < 6; i += 1) {
+        await new Promise((r) => setTimeout(r, 70));
+        if (!aliveRef.current || !videoRef.current) break;
+        try { extra.push(captureFrame(videoRef.current, ASPECT).canvas); } catch { break; }
+      }
       stopCam();
-      analyse(shot);
+      analyse(shot, extra);
     } catch (e) {
       stopCam();
       setError(e.message || FACE_ERR.read);
@@ -219,7 +236,7 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
     toast?.('관상 기록을 지웠어요');
   };
   const name = profile.name?.trim();
-  const who = profile.id === 'me' ? (name ? `${name}님` : '내') : `${personLabel(profile)}님의`;
+  const who = profile.id === 'me' ? (name ? `${name}님의` : '내') : `${personLabel(profile)}님의`;
   const shownPhoto = photo || saved?.photo || null;
   const quality = saved?.quality;
 
@@ -458,6 +475,13 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
             <p className="mt-1.5 text-[13.5px] leading-[1.7] text-[#4a4458]">
               얼굴의 비율은 사진에서 실제로 잰 값이지만, 그 비율을 운으로 풀이하는 건 옛 책의 이야기예요.
               사람의 값어치나 앞날은 얼굴로 정해지지 않아요. 재미로만 봐 주세요.
+            </p>
+            <p className="mt-2 text-[12.5px] leading-[1.7] text-[#6b6480]">
+              측정에는 오차가 있어요. 앱 안 카메라로 찍으면 {saved?.measures?.frames > 1
+                ? <>여러 장({saved.measures.frames}장)을 재서 가운뎃값을 씁니다. </>
+                : <>여러 장을 재서 가운뎃값을 씁니다. </>}
+              그래도 고개 각도나 빛이 달라지면 부위 유형이 한두 개 바뀔 수 있어요.
+              크게 흔들리는 건 <b>얼굴 오행형</b>이 아니라 <b>세부 부위</b>입니다.
             </p>
           </aside>
         </div>

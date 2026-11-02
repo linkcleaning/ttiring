@@ -4,6 +4,7 @@
 //  2) 오늘의 운: 총운 한마디, 분야별 운(이유·실천 팁), 괘·당사주
 //  3) 피할 것과 행운, 고민 맞춤 한마디, 달력용 특별한 날
 // ─────────────────────────────────────────────────────────────
+import { gwa, josaPair } from './josa.js';
 import { ANIMALS, BRANCHES, BRANCHES_KO, BRANCH_EL, HOURS, STEMS, STEMS_KO, seededRandom, mod } from './saju.js';
 
 const pick = (rng, arr) => arr[Math.floor(rng() * arr.length)];
@@ -14,12 +15,8 @@ const pickN = (rng, arr, n) => {
   return out;
 };
 // 받침에 따라 조사 선택 (은/는, 을/를, 이/가, 과/와)
-export const josa = (word, pair) => {
-  const c = word.charCodeAt(word.length - 1);
-  const has = c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0;
-  const [a, b] = pair.split('/');
-  return word + (has ? a : b);
-};
+// 조사 처리는 josa.js 한 곳에서 합니다 (괄호 표기 '화(火)'도 읽는 글자로 판정)
+export const josa = josaPair;
 export const tier = (s) => (s >= 70 ? 'high' : s >= 48 ? 'mid' : 'low');
 
 export function gradeOf(score) {
@@ -221,7 +218,7 @@ function buildDetail(r, rng, grade, luckyHour, bestCat, worstCat) {
   const elLine = (() => {
     const a = fv(stemEl);
     const b = fv(branchEl);
-    if (a >= 0.4 && b >= 0.4) return `오늘 들어온 ${EL_NAME[stemEl]}과 ${EL_NAME[branchEl]} 기운이 둘 다 내게 필요한 쪽이라, 위아래가 모두 나를 돕는 보기 드문 날이에요.`;
+    if (a >= 0.4 && b >= 0.4) return `오늘 들어온 ${gwa(EL_NAME[stemEl])} ${EL_NAME[branchEl]} 기운이 둘 다 내게 필요한 쪽이라, 위아래가 모두 나를 돕는 보기 드문 날이에요.`;
     if (a <= -0.4 && b <= -0.4) return `오늘은 하늘의 ${EL_NAME[stemEl]}도 땅의 ${EL_NAME[branchEl]}도 내게는 부담이 되는 기운이라, 평소라면 넘어갈 일이 오늘따라 크게 느껴질 수 있어요.`;
     if (a >= 0.4) return `오늘 하늘로 들어온 ${EL_NAME[stemEl]} 기운이 내게 꼭 필요한 쪽이라, 겉으로 드러나는 일부터 먼저 풀려요.`;
     if (b >= 0.4) return `오늘 땅에 깔린 ${EL_NAME[branchEl]} 기운이 내게 꼭 필요한 쪽이라, 티는 안 나도 속에서부터 받쳐 주는 날이에요.`;

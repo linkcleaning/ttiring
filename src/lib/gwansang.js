@@ -12,6 +12,7 @@ import { BRANCHES_KO, BRANCH_EL, STEMS_KO, STEM_EL, elementCount, mod, seededRan
 
 export const EL_KO = ['목(木)', '화(火)', '토(土)', '금(金)', '수(水)'];
 const EL1 = ['목', '화', '토', '금', '수'];
+import { eul, eun, i, ira, yeyo } from './josa.js';
 
 const clamp = (v, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
 /** 측정값을 보통 범위(lo~hi) 기준 0~100으로 (50이 평균적인 얼굴) */
@@ -178,6 +179,36 @@ export function measureFace(landmarks) {
 }
 
 /** 사진이 관상 보기에 알맞은지 (너무 작거나·치우치거나·기울거나·옆을 보는지) */
+/**
+ * 여러 장에서 잰 수치를 항목별 중앙값으로 합칩니다.
+ * 사진 한 장만 쓰면 좌표가 미세하게 떨려서 부위 유형이 쉽게 바뀌어요.
+ * 중앙값을 쓰면 한두 장이 흔들려도 결과가 그대로 남습니다.
+ * @returns 합친 수치 + spread(항목별 흔들림의 중앙값, 작을수록 잘 찍힌 것)
+ */
+export function mergeMeasures(list) {
+  const good = list.filter(Boolean);
+  if (good.length === 0) throw new Error('얼굴 좌표가 모자라요');
+  if (good.length === 1) return { ...good[0], frames: 1, spread: 0 };
+  const med = (a) => {
+    const b = [...a].sort((x, y) => x - y);
+    const h = b.length >> 1;
+    return b.length % 2 ? b[h] : (b[h - 1] + b[h]) / 2;
+  };
+  const out = {};
+  const spreads = [];
+  for (const k of Object.keys(good[0])) {
+    const vals = good.map((m) => m[k]);
+    if (typeof vals[0] !== 'number' || vals.some((v) => !Number.isFinite(v))) { out[k] = vals[0]; continue; }
+    const m = med(vals);
+    out[k] = m;
+    const scale = Math.max(Math.abs(m), 0.02);
+    spreads.push(med(vals.map((v) => Math.abs(v - m))) / scale);
+  }
+  out.frames = good.length;
+  out.spread = +(med(spreads) * 100).toFixed(2); // %
+  return out;
+}
+
 export function faceQuality(lm) {
   const topY = Math.min(...ys(lm, P.foreheadTop));
   const chinY = Math.max(...ys(lm, P.chin));
@@ -486,19 +517,19 @@ function todayFaceLine(오행점, an, ctx) {
   const bF = an.fav[bEl];
 
   let a;
-  if (sF >= 0.3 && sS >= 55) a = `${gz}인 오늘, 하늘로 들어온 ${EL_KO[sEl]} 기운을 당신의 ${FACE_OF_EL[sEl]}이 ${sS}점으로 단단히 받치고 있어요. 사주에도 반가운 기운이라 얼굴과 날이 같은 편에 선 날이에요.`;
-  else if (sF >= 0.3) a = `${gz}인 오늘 들어온 ${EL_KO[sEl]} 기운은 사주에 꼭 필요한 쪽인데, 그 자리를 맡는 ${FACE_OF_EL[sEl]}은 ${sS}점으로 담백해요. 날이 주는 복을 얼굴이 다 받기엔 그릇이 조금 작은 날이에요.`;
-  else if (sF <= -0.3 && sS >= 55) a = `${gz}인 오늘 들어온 ${EL_KO[sEl]} 기운은 사주에는 부담이 되는 쪽이에요. 그런데 그 ${EL1[sEl]}을 맡는 ${FACE_OF_EL[sEl]}이 ${sS}점으로 강하게 서 있어서, 오늘의 부담을 얼굴이 대신 막아 줘요. 마의상법에서 ‘상(相)이 흉(凶)을 가린다’고 한 자리가 오늘이에요.`;
-  else if (sF <= -0.3) a = `${gz}인 오늘 들어온 ${EL_KO[sEl]} 기운은 사주에 부담이 되는 쪽인데, 받쳐 줄 ${FACE_OF_EL[sEl]}도 ${sS}점으로 조용해요. ${PALACE_OF_EL[sEl]}를 건드리는 일은 하루만 미뤄 두세요.`;
-  else a = `${gz}인 오늘 들어온 ${EL_KO[sEl]} 기운은 사주에 크게 치우치지 않아요. 그 자리를 맡는 ${FACE_OF_EL[sEl]}이 ${sS}점이라, 오늘은 날보다 ${FACE_SHORT[sEl]}이 말해 주는 성향 그대로 움직이면 돼요.`;
+  if (sF >= 0.3 && sS >= 55) a = `${gz}인 오늘, 하늘로 들어온 ${EL_KO[sEl]} 기운을 당신의 ${i(FACE_OF_EL[sEl])} ${sS}점으로 단단히 받치고 있어요. 사주에도 반가운 기운이라 얼굴과 날이 같은 편에 선 날이에요.`;
+  else if (sF >= 0.3) a = `${gz}인 오늘 들어온 ${EL_KO[sEl]} 기운은 사주에 꼭 필요한 쪽인데, 그 자리를 맡는 ${eun(FACE_OF_EL[sEl])} ${sS}점으로 담백해요. 날이 주는 복을 얼굴이 다 받기엔 그릇이 조금 작은 날이에요.`;
+  else if (sF <= -0.3 && sS >= 55) a = `${gz}인 오늘 들어온 ${EL_KO[sEl]} 기운은 사주에는 부담이 되는 쪽이에요. 그런데 그 ${eul(EL1[sEl])} 맡는 ${i(FACE_OF_EL[sEl])} ${sS}점으로 강하게 서 있어서, 오늘의 부담을 얼굴이 대신 막아 줘요. 마의상법에서 ‘상(相)이 흉(凶)을 가린다’고 한 자리가 오늘이에요.`;
+  else if (sF <= -0.3) a = `${gz}인 오늘 들어온 ${EL_KO[sEl]} 기운은 사주에 부담이 되는 쪽인데, 받쳐 줄 ${FACE_OF_EL[sEl]}도 ${sS}점으로 조용해요. ${eul(PALACE_OF_EL[sEl])} 건드리는 일은 하루만 미뤄 두세요.`;
+  else a = `${gz}인 오늘 들어온 ${EL_KO[sEl]} 기운은 사주에 크게 치우치지 않아요. 그 자리를 맡는 ${i(FACE_OF_EL[sEl])} ${sS}점이라, 오늘은 날보다 ${i(FACE_SHORT[sEl])} 말해 주는 성향 그대로 움직이면 돼요.`;
 
   let b;
-  if (bEl === sEl) b = `땅에 깔린 기운도 같은 ${EL1[bEl]}이라, 오늘은 ${FACE_SHORT[bEl]} 하나에 하루가 다 걸려 있어요.`;
-  else if (bF >= 0.3 && bS >= 55) b = `땅에 깔린 ${EL_KO[bEl]} 기운도 내게 반가운 쪽인데, 마침 ${FACE_OF_EL[bEl]}이 ${bS}점으로 받쳐 줘요. 겉으로 드러나지 않는 자리에서 일이 먼저 풀리는 날이에요.`;
-  else if (bF >= 0.3) b = `땅에 깔린 ${EL_KO[bEl]} 기운은 내게 필요한 쪽이지만 ${FACE_OF_EL[bEl]}은 ${bS}점으로 조용해요. 오늘의 득은 사람을 통해 들어와요.`;
-  else if (bF <= -0.3 && bS >= 55) b = `땅에 깔린 ${EL_KO[bEl]} 기운은 부담이 되는 쪽인데, ${FACE_OF_EL[bEl]}이 ${bS}점으로 버텨 줘요. 속으로는 피곤해도 겉으로는 무너지지 않는 날이에요.`;
+  if (bEl === sEl) b = `땅에 깔린 기운도 같은 ${ira(EL1[bEl])}, 오늘은 ${FACE_SHORT[bEl]} 하나에 하루가 다 걸려 있어요.`;
+  else if (bF >= 0.3 && bS >= 55) b = `땅에 깔린 ${EL_KO[bEl]} 기운도 내게 반가운 쪽인데, 마침 ${i(FACE_OF_EL[bEl])} ${bS}점으로 받쳐 줘요. 겉으로 드러나지 않는 자리에서 일이 먼저 풀리는 날이에요.`;
+  else if (bF >= 0.3) b = `땅에 깔린 ${EL_KO[bEl]} 기운은 내게 필요한 쪽이지만 ${eun(FACE_OF_EL[bEl])} ${bS}점으로 조용해요. 오늘의 득은 사람을 통해 들어와요.`;
+  else if (bF <= -0.3 && bS >= 55) b = `땅에 깔린 ${EL_KO[bEl]} 기운은 부담이 되는 쪽인데, ${i(FACE_OF_EL[bEl])} ${bS}점으로 버텨 줘요. 속으로는 피곤해도 겉으로는 무너지지 않는 날이에요.`;
   else if (bF <= -0.3) b = `땅에 깔린 ${EL_KO[bEl]} 기운까지 부담이 되는 쪽이고 ${FACE_OF_EL[bEl]}도 ${bS}점이라, 오늘은 몸이 먼저 신호를 보낼 수 있어요.`;
-  else b = `땅에 깔린 ${EL_KO[bEl]} 기운은 무던해서, ${FACE_SHORT[bEl]}이 하루를 조용히 받쳐 줘요.`;
+  else b = `땅에 깔린 ${EL_KO[bEl]} 기운은 무던해서, ${i(FACE_SHORT[bEl])} 하루를 조용히 받쳐 줘요.`;
 
   const good = (sF >= 0.3 || sS >= 55) && bF > -0.3;
   return `${a} ${b} ${pick(good ? CLOSE_GOOD : CLOSE_SOFT)}`;
@@ -533,18 +564,18 @@ export function readFace(m, ctx) {
   const yongFace = 오행점[yong];
   cross.push(
     yongFace >= 55
-      ? `사주에서 가장 필요한 기운은 ${EL_KO[yong]}이에요. 그런데 그 ${EL1[yong]}을 맡는 자리가 바로 ${FACE_OF_EL[yong]}인데, 이 자리가 ${yongFace}점으로 뚜렷하게 살아 있어요. 타고난 사주가 모자란 쪽을 얼굴이 직접 메워 주는 상이라, 마의상법에서 말하는 ‘명(命)이 못 채운 것을 상(相)이 채운다’는 자리예요.`
-      : `사주에서 가장 필요한 기운은 ${EL_KO[yong]}이고, 그 자리를 맡는 ${FACE_OF_EL[yong]}은 ${yongFace}점으로 담백한 편이에요. 얼굴이 대신 채워 주기보다, ${EL1[yong]}의 기운을 사람과 자리에서 끌어와야 하는 상이에요. ${PALACE_OF_EL[yong]}를 도와주는 사람 곁에 있을 때 일이 가장 잘 풀려요.`,
+      ? `사주에서 가장 필요한 기운은 ${yeyo(EL_KO[yong])}. 그런데 그 ${eul(EL1[yong])} 맡는 자리가 바로 ${FACE_OF_EL[yong]}인데, 이 자리가 ${yongFace}점으로 뚜렷하게 살아 있어요. 타고난 사주가 모자란 쪽을 얼굴이 직접 메워 주는 상이라, 마의상법에서 말하는 ‘명(命)이 못 채운 것을 상(相)이 채운다’는 자리예요.`
+      : `사주에서 가장 필요한 기운은 ${EL_KO[yong]}이고, 그 자리를 맡는 ${eun(FACE_OF_EL[yong])} ${yongFace}점으로 담백한 편이에요. 얼굴이 대신 채워 주기보다, ${EL1[yong]}의 기운을 사람과 자리에서 끌어와야 하는 상이에요. ${eul(PALACE_OF_EL[yong])} 도와주는 사람 곁에 있을 때 일이 가장 잘 풀려요.`,
   );
   const el0 = lacking[0];
   if (minCount === 0) {
     cross.push(
       오행점[el0] >= 50
-        ? `사주 여덟 글자 안에 ${EL_KO[el0]} 기운이 하나도 없어요. 보통은 ${PALACE_OF_EL[el0]}가 비기 쉬운데, 얼굴에서 ${FACE_OF_EL[el0]}이 ${오행점[el0]}점으로 받쳐 주고 있어요. 없는 것을 얼굴이 벌어다 쓰는 셈이라, 이 부분은 남보다 늦게 트이지만 한 번 트이면 오래가요.`
-        : `사주에 ${EL_KO[el0]} 기운이 하나도 없고, 그 자리를 맡는 ${FACE_OF_EL[el0]}도 ${오행점[el0]}점으로 조용한 편이에요. 이 기운은 타고나기보다 만들어 쓰는 쪽이라, ${PALACE_OF_EL[el0]}는 사람을 통해 빌려 쓰는 게 빠르고 편해요.`,
+        ? `사주 여덟 글자 안에 ${EL_KO[el0]} 기운이 하나도 없어요. 보통은 ${i(PALACE_OF_EL[el0])} 비기 쉬운데, 얼굴에서 ${i(FACE_OF_EL[el0])} ${오행점[el0]}점으로 받쳐 주고 있어요. 없는 것을 얼굴이 벌어다 쓰는 셈이라, 이 부분은 남보다 늦게 트이지만 한 번 트이면 오래가요.`
+        : `사주에 ${EL_KO[el0]} 기운이 하나도 없고, 그 자리를 맡는 ${FACE_OF_EL[el0]}도 ${오행점[el0]}점으로 조용한 편이에요. 이 기운은 타고나기보다 만들어 쓰는 쪽이라, ${eun(PALACE_OF_EL[el0])} 사람을 통해 빌려 쓰는 게 빠르고 편해요.`,
     );
   } else {
-    cross.push(`사주에서 가장 옅은 기운은 ${EL_KO[el0]}이에요. 얼굴에서 그 자리를 맡는 ${FACE_OF_EL[el0]}이 ${오행점[el0]}점이라, ${오행점[el0] >= 50 ? '모자란 쪽을 얼굴이 조용히 받쳐 주고 있어요' : '이 자리는 평생 한 번씩 점검해 두는 게 좋아요'}.`);
+    cross.push(`사주에서 가장 옅은 기운은 ${yeyo(EL_KO[el0])}. 얼굴에서 그 자리를 맡는 ${i(FACE_OF_EL[el0])} ${오행점[el0]}점이라, ${오행점[el0] >= 50 ? '모자란 쪽을 얼굴이 조용히 받쳐 주고 있어요' : '이 자리는 평생 한 번씩 점검해 두는 게 좋아요'}.`);
   }
   const fv = an.fav[faceEl];
   cross.push(
@@ -567,11 +598,11 @@ export function readFace(m, ctx) {
   const best = [['초년', 상정, '이마', '서른넷까지'], ['중년', 중정, '눈과 코', '서른다섯에서 쉰까지'], ['말년', 하정, '입과 턱', '쉰하나부터']]
     .sort((a, b) => b[1] - a[1]);
   const flow = `삼정(三停)으로 보면 초년 ${상정}점, 중년 ${중정}점, 말년 ${하정}점이에요. 옛 책은 상정이 태어나서 서른넷까지, 중정이 서른다섯에서 쉰까지, 하정이 쉰하나부터를 맡는다고 봤어요. `
-    + `${best[0][0]}을 맡는 ${best[0][2]}이 가장 실하니, 이 얼굴은 ${best[0][3]} 힘이 실리는 상이에요. `
-    + `${best[2][0]}을 맡는 ${best[2][2]}은 ${best[2][1]}점으로 상대적으로 얌전한데, 마의상법은 모자란 정(停)을 두고 ‘덜 받은 게 아니라 늦게 받는 것’이라 했어요.`;
+    + `${best[0][0]}을 맡는 ${i(best[0][2])} 가장 실하니, 이 얼굴은 ${best[0][3]} 힘이 실리는 상이에요. `
+    + `${best[2][0]}을 맡는 ${eun(best[2][2])} ${best[2][1]}점으로 상대적으로 얌전한데, 마의상법은 모자란 정(停)을 두고 ‘덜 받은 게 아니라 늦게 받는 것’이라 했어요.`;
 
-  const ages = `십삼부위로 더 잘게 보면 이마의 천중·천정·사공·중정이 열여섯에서 스물다섯, 두 눈썹 사이 명궁이 스물여덟, 두 눈 사이 산근이 마흔하나, 코끝 준두가 마흔여덟, 인중이 쉰하나, 입이 예순, 턱의 지각이 일흔하나를 맡아요. `
-    + `지금 ${types.코.name}(${types.코.hanja})인 코가 ${sc.부위.코}점이니 마흔에서 쉰 사이가 ${sc.부위.코 >= 55 ? '가장 두텁고' : '담백하고'}, 턱이 ${sc.부위.턱}점이라 예순 이후가 ${sc.부위.턱 >= 55 ? '든든해요' : '천천히 자리를 잡아요'}.`;
+  const ages = `십삼부위로 더 잘게 보면 이마의 천중·천정·사공·중정이 열다섯에서 서른, 두 눈썹 사이 명궁이 스물여덟, 두 눈 사이 산근이 마흔하나, 코끝 준두가 마흔여덟, 인중이 쉰하나, 입이 예순, 턱의 지각이 일흔하나를 맡아요. `
+    + `지금 ${types.코.name}(${types.코.hanja})인 코가 ${sc.부위.코}점이니 마흔하나에서 쉰 사이가 ${sc.부위.코 >= 55 ? '가장 두텁고' : '담백하고'}, 턱이 ${sc.부위.턱}점이라 예순 이후가 ${sc.부위.턱 >= 55 ? '든든해요' : '천천히 자리를 잡아요'}.`;
 
   return {
     scores: sc,

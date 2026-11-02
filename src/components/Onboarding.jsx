@@ -238,7 +238,7 @@ export default function Onboarding({ initial, onDone, onCancel, soundOn, mode = 
         <TopBar title={isAdd ? `${profile.name || '이 사람'}님의 사주` : '나의 사주'} onBack={isAdd ? onCancel : undefined} />
         <p className="mt-2 text-center text-[15px] text-sub">
           {isAdd
-            ? `${f.relation} ${profile.name || ''}님의 여덟 글자예요`
+            ? (profile.name ? `${f.relation} ${profile.name}님의 여덟 글자예요` : `${f.relation}의 여덟 글자예요`)
             : (profile.name ? `반가워요, ${profile.name}님!` : '반가워요!')}
         </p>
         <div className="mt-4">

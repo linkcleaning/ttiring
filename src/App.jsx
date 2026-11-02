@@ -128,7 +128,7 @@ export default function App() {
   return (
     <TermContext.Provider value={setTerm}>
       <div className="mx-auto min-h-screen max-w-[440px] px-4 pb-[calc(84px+env(safe-area-inset-bottom))]">
-        <TopBar title={isMe ? current.title : `${personLabel(profile)}님의 ${current.key === 'home' ? '운세' : current.title.replace('나의 ', '').replace(' 보기', '')}`} />
+        <TopBar title={isMe || current.key === 'settings' ? current.title : `${personLabel(profile)}님의 ${current.key === 'home' ? '운세' : current.title.replace('나의 ', '').replace(' 보기', '')}`} />
 
         {tab === 'home' && (
           <HomeTab key={profile.id} profile={profile} soundOn={settings.sound}

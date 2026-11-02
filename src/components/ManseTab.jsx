@@ -8,7 +8,7 @@ import { Card, FunNotice, Term } from './ui.jsx';
 import { ANIMALS, mod } from '../lib/saju.js';
 import { funProfile } from '../lib/profileText.js';
 
-const COL_LABEL = { hour: ['시주', '말년운'], day: ['일주', '장년운'], month: ['월주', '청년운'], year: ['년주', '초년운'] };
+const COL_LABEL = { hour: ['시주', '말년운'], day: ['일주', '장년운'], month: ['월주', '청년운'], year: ['연주', '초년운'] };
 const EL_NAME = ['나무', '불', '흙', '쇠', '물'];
 
 function Tile({ ko, hanja, el }) {
@@ -219,11 +219,26 @@ export default function ManseTab({ profile }) {
         </div>
         <p className="mt-4 rounded-xl bg-bg px-3 py-2.5 text-[13px] leading-relaxed text-sub">
           일주 기준 <Term name="공망" className="text-ink">공망</Term>은{' '}
-          <b className="text-ink">{m.gongmang.map((b) => `${BRANCHES_KO[b]}(${BRANCHES[b]})`).join(', ')}</b>이에요.
+          <b className="text-ink">{m.gongmang.map((b) => `${BRANCHES_KO[b]}(${BRANCHES[b]})`).join(', ')}</b>{josa(BRANCHES_KO[m.gongmang[m.gongmang.length - 1]], '이에요/예요')}.
           {m.natal.solarMinutes === null
             ? ' 태어난 시간을 몰라서 시주는 비워 뒀어요.'
-            : <> {profile.city || '한국 평균 경도'} 기준 <Term name="진태양시" className="text-ink">진태양시</Term> {String(Math.floor(m.natal.solarMinutes / 60)).padStart(2, '0')}:{String(m.natal.solarMinutes % 60).padStart(2, '0')}로 시주를 정했어요.</>}
+            : <> {profile.city || '한국 평균 경도'} 기준 <Term name="진태양시" className="text-ink">진태양시</Term> {String(Math.floor(m.natal.solarMinutes / 60)).padStart(2, '0')}:{String(m.natal.solarMinutes % 60).padStart(2, '0')} 기준으로 시주를 정했어요.</>}
         </p>
+        {m.natal.adj && (
+          <p className="mt-2 rounded-xl bg-bg px-3 py-2.5 text-[12.5px] leading-relaxed text-faint">
+            시계 {profile.time}에서{' '}
+            {m.natal.adj.dst ? <>서머타임 −{m.natal.adj.dst}분, </> : null}
+            경도 보정 {m.natal.adj.lon >= 0 ? '+' : '−'}{Math.abs(m.natal.adj.lon)}분
+            (동경 {m.natal.adj.meridian}° 기준),{' '}
+            <Term name="균시차" className="text-sub">균시차</Term> {m.natal.adj.eot >= 0 ? '+' : '−'}{Math.abs(m.natal.adj.eot)}분을 더한 값이에요.
+          </p>
+        )}
+        {m.natal.adj && m.natal.adj.edge <= 10 && (
+          <p className="mt-2 rounded-xl bg-[#FFF6E5] px-3 py-2.5 text-[12.5px] leading-relaxed text-[#8a6212]">
+            <b>시주 경계에서 {m.natal.adj.edge}분</b> 거리예요. 태어난 시각이 몇 분만 달라도 시주가 옆 칸으로 넘어갑니다.
+            기억하는 시각이 ‘대충 몇 시쯤’이라면 시주 풀이는 참고만 해 주세요.
+          </p>
+        )}
       </Card>
 
       {/* 신강·신약과 용신 */}

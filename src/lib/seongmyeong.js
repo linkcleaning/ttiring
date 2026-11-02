@@ -12,6 +12,7 @@
 //    여기서는 훈민정음 발음 위치를 따라 목구멍소리를 토(土)로 봤어요.
 // ─────────────────────────────────────────────────────────────
 import { elementCount } from './saju.js';
+import { euro, eul, yeyo } from './josa.js';
 
 export const EL_KO = ['목(木)', '화(火)', '토(土)', '금(金)', '수(水)'];
 const EL1 = ['목', '화', '토', '금', '수'];
@@ -70,19 +71,6 @@ export function readLetters(name) {
     return { ch, cho: d.cho, el: CHO_EL[d.cho] ?? null, strokes: strokesOf(ch) };
   });
 }
-
-// ── 조사 붙이기 (받침 유무에 따라) ──────────────────────────
-/** 한글 한 글자에 받침이 있는지 */
-function hasJong(ch) {
-  const c = (ch || '').charCodeAt(0) - 0xac00;
-  return c >= 0 && c < 11172 && c % 28 !== 0;
-}
-/** 목/화/토/금/수 같은 낱말 뒤에 맞는 조사를 골라 줍니다 */
-const josa = (word, withJong, noJong) => (hasJong(word) ? withJong : noJong);
-const eul = (w) => `${w}${josa(w, '을', '를')}`;          // 목을 / 화를
-const euro = (w) => `${w}${josa(w, '으로', '로')}`;        // 목으로 / 화로
-/** 괄호 표기(목(木))에도 쓸 수 있게, 읽는 글자로 판정합니다 */
-const yeyo = (label, bare) => `${label}${josa(bare, '이에요', '예요')}`;
 
 // ── 오행 흐름 ───────────────────────────────────────────────
 const gen = (a, b) => (a + 1) % 5 === b;   // a가 b를 낳음 (상생)
@@ -154,22 +142,29 @@ export const suriKind = (n) => {
 };
 
 const GYEOK = [
-  { key: '원격', hanja: '元格', life: '초년운', how: '이름 첫 글자 획수' },
+  { key: '원격', hanja: '元格', life: '초년운', how: '이름 글자 획수 합' },
   { key: '형격', hanja: '亨格', life: '청장년운', how: '성 + 이름 첫 글자' },
-  { key: '이격', hanja: '利格', life: '중년운', how: '이름 글자 획수 합' },
+  { key: '이격', hanja: '利格', life: '중년운', how: '성 + 이름 끝 글자' },
   { key: '정격', hanja: '貞格', life: '말년·총운', how: '성 + 이름 전체' },
 ];
 
 /**
  * 한자 획수로 4격 계산
+ * 성 획수 A, 이름 첫 자 B, 이름 끝 자 C일 때
+ * 원격 B+C · 형격 A+B · 이격 A+C · 정격 A+B+C
  * @param sur 성 획수, given 이름 글자 획수 배열
+ * @returns 4격 배열 (외자 이름이면 single: true — 격이 겹칩니다)
  */
 export function fourGyeok(sur, given) {
   const g = given.filter((n) => Number.isFinite(n) && n > 0);
   if (!Number.isFinite(sur) || sur <= 0 || g.length === 0) return null;
   const sum = (a) => a.reduce((x, y) => x + y, 0);
-  const vals = [g[0], sur + g[0], sum(g), sur + sum(g)];
-  return GYEOK.map((meta, i) => ({ ...meta, n: vals[i], ...suriKind(vals[i]) }));
+  const first = g[0];
+  const last = g[g.length - 1];
+  const vals = [sum(g), sur + first, sur + last, sur + sum(g)];
+  const out = GYEOK.map((meta, i) => ({ ...meta, n: vals[i], ...suriKind(vals[i]) }));
+  out.single = g.length === 1; // 외자 이름: 형격·이격·정격이 같은 값이 됩니다
+  return out;
 }
 
 // ── 이름 오행이 사주를 어떻게 돕는지 ────────────────────────
@@ -206,7 +201,7 @@ export function readName(name, ctx = null, opts = {}) {
     const yong = an.yongsin;
     const has = nameCount[yong] > 0;
     cross.push(has
-      ? `사주에서 가장 필요한 기운은 ${yeyo(EL_KO[yong], EL1[yong])}. 마침 이름 안에 ${EL1[yong]} 소리가 ${nameCount[yong]}자 들어 있어요. 부르는 소리가 모자란 기운을 하루에도 몇 번씩 채워 주는 셈이라, 성명학에서 가장 반기는 짜임입니다.`
+      ? `사주에서 가장 필요한 기운은 ${yeyo(EL_KO[yong])}. 마침 이름 안에 ${EL1[yong]} 소리가 ${nameCount[yong]}자 들어 있어요. 부르는 소리가 모자란 기운을 하루에도 몇 번씩 채워 주는 셈이라, 성명학에서 가장 반기는 짜임입니다.`
       : `사주에서 가장 필요한 기운은 ${EL_KO[yong]}인데, 이름에는 ${EL1[yong]} 소리가 없어요. ${EL_SOUND[yong].letters} 소리가 그 자리를 맡는데, 별명이나 상호처럼 자주 불리는 이름에 그 소리를 한 번 섞으면 보탬이 됩니다.`);
 
     const minC = Math.min(...counts);
@@ -235,7 +230,7 @@ export function readName(name, ctx = null, opts = {}) {
     nameCount,
     main,
     missing,
-    mainText: `이름 전체를 이끄는 소리는 ${yeyo(EL_KO[main], EL1[main])}. ${EL_TRAIT[main]}`,
+    mainText: `이름 전체를 이끄는 소리는 ${yeyo(EL_KO[main])}. ${EL_TRAIT[main]}`,
     cross,
     gyeok,
     total: Math.round(flow.score * 0.7 + (yy.balanced ? 100 : 55) * 0.3),
