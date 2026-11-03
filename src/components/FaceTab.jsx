@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { inNativeApp } from '../lib/nativeBridge.js';
 import { Camera, ChevronDown, Images, RefreshCw, ScanFace, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
 import { computeFortune, manseryeok } from '../lib/saju.js';
 import {
@@ -10,6 +11,14 @@ import PersonBar from './PersonBar.jsx';
 import { Sheet } from './ui.jsx';
 import { clearFace, loadFace, saveFace } from '../lib/faceStore.js';
 import { personLabel } from '../lib/people.js';
+
+/**
+ * 앱(Expo 래퍼) 안에서도 '앨범에서 고르기'를 보여 줄지.
+ * 안드로이드 WebView의 파일 선택이 기기마다 달라서, 문제가 생기면
+ * 이 값만 false로 바꾸면 앱 안에서는 카메라만 쓰게 됩니다.
+ * (브라우저·홈 화면 PWA는 이 값과 상관없이 앨범을 그대로 씁니다.)
+ */
+const ALBUM_IN_APP = true;
 
 const ASPECT = 3 / 4; // 카메라 화면 비율 (가로÷세로)
 
@@ -83,6 +92,8 @@ function PartCard({ part, delay, open, onToggle }) {
 }
 
 export default function FaceTab({ profile, people = [], activeId, onSelectPerson, onAddPerson, dateOffset = 0, toast }) {
+  // 앱 안에서는 ALBUM_IN_APP 값에 따라 앨범을 감출 수 있어요
+  const useAlbum = ALBUM_IN_APP || !inNativeApp();
   const [saved, setSaved] = useState(() => loadFace(profile.id));
   const [photo, setPhoto] = useState(null);
   const [phase, setPhase] = useState(saved ? 'done' : 'idle'); // idle|camera|scanning|done|error
@@ -269,10 +280,12 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
               <Camera size={19} className="shrink-0" aria-hidden="true" /> 얼굴 맞춰 찍기
             </button>
             <p className="mt-2 text-[12.5px] text-faint">화면에 타원 가이드가 나와요. 거기에 얼굴을 맞추면 돼요.</p>
-            <button type="button" onClick={() => fileRef.current?.click()}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-card py-3.5 text-[15px] font-semibold">
-              <Images size={17} className="shrink-0" aria-hidden="true" /> 앨범에서 고르기
-            </button>
+            {useAlbum && (
+              <button type="button" onClick={() => fileRef.current?.click()}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-card py-3.5 text-[15px] font-semibold">
+                <Images size={17} className="shrink-0" aria-hidden="true" /> 앨범에서 고르기
+              </button>
+            )}
             {camError && <p className="mt-3 rounded-xl bg-[#FDECE9] px-3 py-2.5 text-[13px] leading-relaxed text-[#C23B26]">{camError}</p>}
           </Card>
 
@@ -311,10 +324,12 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-ink py-4 text-[16px] font-semibold text-white disabled:bg-[#55555e]">
             <Camera size={19} className="shrink-0" aria-hidden="true" /> {ready ? '찍기' : '카메라 켜는 중…'}
           </button>
-          <button type="button" onClick={() => { stopCam(); fileRef.current?.click(); }}
-            className="mt-2 w-full rounded-2xl border border-line bg-card py-3.5 text-[15px] font-semibold">
-            앨범에서 고르기
-          </button>
+          {useAlbum && (
+            <button type="button" onClick={() => { stopCam(); fileRef.current?.click(); }}
+              className="mt-2 w-full rounded-2xl border border-line bg-card py-3.5 text-[15px] font-semibold">
+              앨범에서 고르기
+            </button>
+          )}
         </Card>
       )}
 
@@ -350,10 +365,12 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-ink py-3.5 text-[15.5px] font-semibold text-white">
             <Camera size={18} className="shrink-0" aria-hidden="true" /> 얼굴 맞춰 다시 찍기
           </button>
-          <button type="button" onClick={() => fileRef.current?.click()}
-            className="mt-2 w-full rounded-2xl border border-line bg-card py-3.5 text-[15px] font-semibold">
-            앨범에서 고르기
-          </button>
+          {useAlbum && (
+            <button type="button" onClick={() => fileRef.current?.click()}
+              className="mt-2 w-full rounded-2xl border border-line bg-card py-3.5 text-[15px] font-semibold">
+              앨범에서 고르기
+            </button>
+          )}
         </Card>
       )}
 
@@ -391,15 +408,17 @@ export default function FaceTab({ profile, people = [], activeId, onSelectPerson
                 <p className="mt-2 text-[12.5px] font-semibold leading-[1.5] text-ink">{reading.headline}</p>
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className={`mt-4 grid gap-2 ${useAlbum ? 'grid-cols-2' : 'grid-cols-1'}`}>
               <button type="button" onClick={startCamera}
                 className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl bg-ink py-2.5 text-[14px] font-semibold text-white">
                 <Camera size={16} className="shrink-0" aria-hidden="true" /> 다시 찍기
               </button>
-              <button type="button" onClick={() => fileRef.current?.click()}
-                className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-line bg-card py-2.5 text-[14px] font-semibold">
-                <Images size={16} className="shrink-0" aria-hidden="true" /> 앨범에서
-              </button>
+              {useAlbum && (
+                <button type="button" onClick={() => fileRef.current?.click()}
+                  className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-line bg-card py-2.5 text-[14px] font-semibold">
+                  <Images size={16} className="shrink-0" aria-hidden="true" /> 앨범에서
+                </button>
+              )}
             </div>
           </section>
 
