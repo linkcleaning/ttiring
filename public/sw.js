@@ -2,7 +2,7 @@
 // - 페이지(HTML): 네트워크 우선 → 실패 시 캐시 (오프라인에서도 열림)
 // - JS·CSS·이미지·폰트: 캐시 우선 + 백그라운드 갱신
 // 배포할 때마다 VERSION을 올리면 이전 캐시가 정리됩니다.
-const VERSION = 'ttiring-v11';
+const VERSION = 'ttiring-v12';
 const NOTIFY_CACHE = 'ttiring-notify'; // 버전을 올려도 지우지 않는 알림 설정 보관함
 const PRECACHE = ['/', '/index.html', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/icons/favicon.png'];
 

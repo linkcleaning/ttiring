@@ -231,7 +231,7 @@ export function faceQuality(lm) {
   if (H < 0.42) issues.push('얼굴이 작게 나왔어요. 조금 더 가까이에서 찍어 주세요.');
   if (Math.abs(cx - 0.5) > 0.14 || Math.abs(cy - 0.5) > 0.18) issues.push('얼굴이 한쪽으로 치우쳤어요. 가운데에 맞춰 주세요.');
   if (tilt > 9) issues.push('고개가 기울었어요. 머리를 바로 세우고 찍어 주세요.');
-  if (yaw > 0.26) issues.push('옆얼굴에 가까워요. 카메라를 정면으로 보고 찍어 주세요.');
+  if (yaw > 0.20) issues.push('고개가 살짝 돌아갔어요. 카메라를 정면으로 보고 찍어 주세요.');
   if (!(H > 0) || !(W > 0)) issues.push('얼굴 크기를 재지 못했어요.');
   return { ok: issues.length === 0, issues, size: +H.toFixed(3), offset: +Math.abs(cx - 0.5).toFixed(3), tilt: +tilt.toFixed(1), yaw: +yaw.toFixed(2) };
 }
@@ -259,10 +259,14 @@ export function faceScores(m) {
   const 남악 = Math.round(norm(m.sang, 0.28, 0.42) * 0.5 + norm(m.templeW, 0.71, 0.94) * 0.5);
   const 중악 = Math.round(norm(m.noseLen, 0.19, 0.38) * 0.35 + norm(m.noseW, 0.215, 0.335) * 0.3 + norm(m.noseZ, -0.03, 0.15) * 0.35);
   const 북악 = Math.round(norm(m.jawW, 0.59, 0.85) * 0.4 + norm(m.chinLen, 0.125, 0.25) * 0.35 + norm(m.chinW, 0.14, 0.34) * 0.25);
-  // 좌우 광대: 중심선 기준 폭 + 돌출. 좌우가 다르면 점수도 갈려요.
+  // 좌우 광대: 관골 자체의 발달(zygo)이 본값이고, 좌우 차이는 조금만 얹어요.
+  // 정면 사진 한 장으로는 '진짜 좌우 차이'와 '고개가 살짝 돌아간 것'을 끝까지 갈라낼 수 없어요.
+  // 폭 차이(spread)와 앞뒤 돌출 차이(cheekZL)는 둘 다 왼쪽이 도드라지면 양수가 되므로
+  // 평균을 내 한 값으로 쓰고, ±8점으로 묶어 자세 때문에 한쪽이 0점으로 꺼지지 않게 합니다.
   const zygo = norm(m.zygoOverJaw, 1.18, 1.69) * 0.45 + norm(m.zygoOverTemple, 1.06, 1.40) * 0.3 + norm(m.cheekProm, -0.02, 0.08) * 0.25;
-  const 동악 = clamp(Math.round(zygo + (m.spreadL - 0.5) * 320 - m.cheekZL * 90));
-  const 서악 = clamp(Math.round(zygo + (m.spreadR - 0.5) * 320 + m.cheekZL * 90));
+  const lean = clamp((((m.spreadL - m.spreadR) + m.cheekZL) / 2) * 60, -8, 8);
+  const 동악 = clamp(Math.round(zygo + lean));
+  const 서악 = clamp(Math.round(zygo - lean));
 
   const 눈썹 = Math.round(norm(m.browLen, 0.285, 0.415) * 0.5 + norm(m.browThick, 0.038, 0.086) * 0.5);
   const 눈 = Math.round(norm(m.eyeW, 0.185, 0.275) * 0.45 + norm(m.eyeH, 0.024, 0.056) * 0.55);
@@ -587,7 +591,7 @@ export function readFace(m, ctx) {
   );
   // 좌우 관골 차이
   const d = sc.오악.동악 - sc.오악.서악;
-  if (Math.abs(d) >= 12) {
+  if (Math.abs(d) >= 8) {
     cross.push(d > 0
       ? `좌우를 견주면 왼쪽 광대(동악·${EL_KO[0]})가 오른쪽보다 ${Math.abs(d)}점 높아요. 동악은 뻗어 나가는 기운이라, 새로 벌이고 사람을 만나는 쪽에 힘이 실립니다. 마무리와 정리를 맡아 줄 사람을 곁에 두면 짝이 맞아요.`
       : `좌우를 견주면 오른쪽 광대(서악·${EL_KO[3]})가 왼쪽보다 ${Math.abs(d)}점 높아요. 서악은 맺고 끊는 기운이라, 판단하고 매듭짓는 쪽에 힘이 실립니다. 먼저 벌여 줄 사람과 짝을 이루면 일이 커져요.`);
