@@ -2,10 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { yeyo } from '../lib/josa.js';
 import {
   Briefcase, ChevronDown, ChevronLeft, ChevronRight, Coins, Heart, HeartPulse, Lightbulb,
-  Download, PencilLine, Share2, Sparkles, X,
+  Download, PencilLine, ScanFace, Share2, Sparkles, X,
 } from 'lucide-react';
-import { computeFortune } from '../lib/saju.js';
+import { computeFortune, manseryeok } from '../lib/saju.js';
+import { faceContext, readFace } from '../lib/gwansang.js';
+import { loadFace } from '../lib/faceStore.js';
 import { EVENT_INFO, buildReading, shareText } from '../lib/fortune.js';
+import GunghapCard from './GunghapCard.jsx';
 import { shareCard } from '../lib/shareCard.js';
 import { unlockAudio } from '../lib/sound.js';
 import ZodiacAvatar, { moodOf } from './ZodiacAvatar.jsx';
@@ -75,7 +78,7 @@ function CategoryCard({ item, delay }) {
   );
 }
 
-export default function HomeTab({ profile, soundOn, people, activeId, onSelectPerson, onAddPerson, onEditPerson, drawnDate, onDrawn, dateOffset, setDateOffset, toast }) {
+export default function HomeTab({ profile, soundOn, people, activeId, onSelectPerson, onAddPerson, onEditPerson, drawnDate, onDrawn, dateOffset, setDateOffset, onGoFace, toast }) {
   const date = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + dateOffset);
@@ -95,6 +98,18 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
   const [saving, setSaving] = useState(false);
   const items = ORDER.map((k) => reading.items.find((i) => i.key === k));
   const ev = reading.event && EVENT_INFO[reading.event];
+
+  // 관상을 한 번이라도 찍어 둔 사람이면, 그 얼굴로 본 '오늘 한 줄'을 홈에서도 보여 줘요.
+  // (얼굴 수치는 그대로지만 오늘 일진이 매일 바뀌어서 글도 매일 달라집니다)
+  const faceToday = useMemo(() => {
+    try {
+      const saved = loadFace(profile.id);
+      if (!saved?.measures) return null;
+      const manse = manseryeok(profile);
+      if (!manse) return null;
+      return readFace(saved.measures, faceContext(manse, r)).todayLine;
+    } catch { return null; }
+  }, [profile, r]);
 
   const draw = () => {
     if (soundOn) unlockAudio();
@@ -259,7 +274,20 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
 
           {items.map((it, i) => <CategoryCard key={it.key} item={it} delay={140 + i * 60} />)}
 
-          <Card delay={380}>
+          <GunghapCard people={people} activeId={activeId} profile={profile} date={date}
+            onAddPerson={onAddPerson} delay={370} />
+
+          {faceToday && (
+            <Card title="오늘 당신의 얼굴" right={<span className="text-[12px] text-sub">관상 × 오늘 일진</span>} delay={400}>
+              <p className="text-[15px] leading-[1.8] text-[#3a3a42]">{faceToday}</p>
+              <button type="button" onClick={onGoFace}
+                className="mt-3.5 flex w-full items-center justify-center gap-1 rounded-2xl bg-bg py-3 text-[14px] font-semibold text-sub">
+                <ScanFace size={16} aria-hidden="true" /> 관상 전체 풀이 보기
+              </button>
+            </Card>
+          )}
+
+          <Card delay={430}>
             <div className="grid grid-cols-2 divide-x divide-line text-center">
               <div>
                 <p className="text-[12px] text-sub">행운의 컬러</p>

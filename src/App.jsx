@@ -142,6 +142,7 @@ export default function App() {
               setDrawn(next); save(KEYS.drawn, next);
             }}
             dateOffset={dateOffset} setDateOffset={setDateOffset}
+            onGoFace={() => setTab('face')}
             toast={toast} />
         )}
         {tab === 'face' && (
