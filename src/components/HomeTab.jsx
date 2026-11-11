@@ -9,6 +9,7 @@ import { faceContext, readFace } from '../lib/gwansang.js';
 import { loadFace } from '../lib/faceStore.js';
 import { EVENT_INFO, buildReading, shareText } from '../lib/fortune.js';
 import GunghapCard from './GunghapCard.jsx';
+import TaegilCard from './TaegilCard.jsx';
 import { shareCard } from '../lib/shareCard.js';
 import { unlockAudio } from '../lib/sound.js';
 import ZodiacAvatar, { moodOf } from './ZodiacAvatar.jsx';
@@ -276,6 +277,8 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
 
           <GunghapCard people={people} activeId={activeId} profile={profile} date={date}
             onAddPerson={onAddPerson} delay={370} />
+
+          <TaegilCard profile={profile} delay={385} />
 
           {faceToday && (
             <Card title="오늘 당신의 얼굴" right={<span className="text-[12px] text-sub">관상 × 오늘 일진</span>} delay={400}>
