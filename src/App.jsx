@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { ArrowUp, House, ScanFace, ScrollText, Settings, Type } from 'lucide-react';
 import Onboarding, { toProfile } from './components/Onboarding.jsx';
 import HomeTab from './components/HomeTab.jsx';
-import ManseTab from './components/ManseTab.jsx';
-import FaceTab from './components/FaceTab.jsx';
-import NameTab from './components/NameTab.jsx';
-import SettingsTab from './components/SettingsTab.jsx';
+// 첫 화면(홈)만 먼저 받고, 나머지 탭은 누를 때 받아요 → 앱이 더 빨리 열려요
+const ManseTab = lazy(() => import('./components/ManseTab.jsx'));
+const FaceTab = lazy(() => import('./components/FaceTab.jsx'));
+const NameTab = lazy(() => import('./components/NameTab.jsx'));
+const SettingsTab = lazy(() => import('./components/SettingsTab.jsx'));
 import { TermContext, TermSheet, TopBar } from './components/ui.jsx';
 import { migrateProfile, personLabel, personYear } from './lib/people.js';
 import { setVibrate } from './lib/sound.js';
@@ -145,6 +146,7 @@ export default function App() {
             onGoFace={() => setTab('face')}
             toast={toast} />
         )}
+        <Suspense fallback={<div className="py-24 text-center text-[14px] text-faint">불러오는 중…</div>}>
         {tab === 'face' && (
           <FaceTab key={profile.id} profile={profile} dateOffset={dateOffset} toast={toast}
             people={people} activeId={profile.id} onSelectPerson={selectPerson}
@@ -177,6 +179,7 @@ export default function App() {
             onClearedFaces={(n) => toast(n ? `관상 기록 ${n}개를 지웠어요` : '지울 관상 기록이 없어요')}
             onReset={() => { Object.values(KEYS).forEach((k) => save(k, null)); clearAllFaces(); setPeople([]); setDrawn({}); setTab('home'); }} />
         )}
+        </Suspense>
       </div>
 
       {/* 아래 탭 */}

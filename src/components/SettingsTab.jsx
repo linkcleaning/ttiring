@@ -210,6 +210,8 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
         <Row label="모든 정보 지우고 처음부터" danger onClick={() => setSheet('reset')} />
       </Group>
 
+      <p className="pt-2 text-center text-[9px] text-faint/60" aria-hidden="true">v15</p>
+
       <Sheet open={!!toDelete} onClose={() => setToDelete(null)} label="사람 삭제">
         {toDelete && (
           <>

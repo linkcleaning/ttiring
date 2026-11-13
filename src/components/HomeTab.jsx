@@ -10,6 +10,7 @@ import { loadFace } from '../lib/faceStore.js';
 import { EVENT_INFO, buildReading, shareText } from '../lib/fortune.js';
 import GunghapCard from './GunghapCard.jsx';
 import TaegilCard from './TaegilCard.jsx';
+import SinnyeonCard from './SinnyeonCard.jsx';
 import { shareCard } from '../lib/shareCard.js';
 import { unlockAudio } from '../lib/sound.js';
 import ZodiacAvatar, { moodOf } from './ZodiacAvatar.jsx';
@@ -186,6 +187,7 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
       </div>
 
       {(needDraw || spinning) ? (
+        <div className="space-y-3">
         <Card title={isMe ? '오늘의 운세 뽑기' : `${personLabel(profile)}님 운세 뽑기`} right={<span className="text-[12px] text-sub">일진·당사주·주역</span>}>
           <DrawMachine result={r} runId={runId} soundOn={soundOn}
             onDone={() => { setTimeout(() => { setSpinning(false); onDrawn(); }, 500); }} />
@@ -195,6 +197,8 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
           </button>
           <p className="mt-2 text-center text-[12px] text-faint">하루에 한 번, 같은 날엔 같은 결과가 나와요. 재미로만 봐 주세요!</p>
         </Card>
+        {!spinning && <SinnyeonCard profile={profile} delay={120} />}
+        </div>
       ) : (
         <div className="space-y-3">
           {/* 총운 */}
@@ -279,6 +283,8 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
             onAddPerson={onAddPerson} delay={370} />
 
           <TaegilCard profile={profile} delay={385} />
+
+          <SinnyeonCard profile={profile} delay={392} />
 
           {faceToday && (
             <Card title="오늘 당신의 얼굴" right={<span className="text-[12px] text-sub">관상 × 오늘 일진</span>} delay={400}>
