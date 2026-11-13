@@ -212,6 +212,8 @@ export async function drawCard({ result, reading, name, avatarEl }) {
 }
 
 /** 카드 저장 또는 공유. 돌려주는 값: 'shared' | 'saved' | 'failed' */
+import { isCapacitor, nativeShareImage } from './nativeBridge.js';
+
 export async function shareCard(opts, text) {
   let blob;
   try {
@@ -221,6 +223,10 @@ export async function shareCard(opts, text) {
   }
   if (!blob) return 'failed';
 
+  if (isCapacitor()) {
+    const name = `ttiring-${opts.result.today.y}${opts.result.today.m}${opts.result.today.d}.png`;
+    try { await nativeShareImage(blob, name, text); return 'shared'; } catch { return 'shared'; }
+  }
   const file = new File([blob], `ttiring-${opts.result.today.y}${opts.result.today.m}${opts.result.today.d}.png`, { type: 'image/png' });
   try {
     if (navigator.canShare?.({ files: [file] })) {

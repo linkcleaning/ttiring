@@ -18,6 +18,7 @@ import DrawMachine from './DrawMachine.jsx';
 import Hexagram from './Hexagram.jsx';
 import { Card, FunNotice, Term, scoreTone } from './ui.jsx';
 import PersonBar from './PersonBar.jsx';
+import { isCapacitor, nativeShareText, shareUrl } from '../lib/nativeBridge.js';
 import { personLabel } from '../lib/people.js';
 
 const CAT = {
@@ -133,8 +134,9 @@ export default function HomeTab({ profile, soundOn, people, activeId, onSelectPe
   const share = async () => {
     const text = shareText(r, reading);
     try {
-      if (navigator.share) { await navigator.share({ title: '띠링', text, url: location.origin }); return; }
-      await navigator.clipboard.writeText(`${text}\n${location.origin}`);
+      if (isCapacitor()) { await nativeShareText(text); return; }
+      if (navigator.share) { await navigator.share({ title: '띠링', text, url: shareUrl() }); return; }
+      await navigator.clipboard.writeText(`${text}\n${shareUrl()}`);
       toast('운세를 복사했어요. 카톡에 붙여넣어 보내세요');
     } catch (e) {
       if (e?.name !== 'AbortError') toast('보내지 못했어요. 다시 시도해 주세요');

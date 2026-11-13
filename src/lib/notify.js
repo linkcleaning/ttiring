@@ -1,4 +1,4 @@
-import { inNativeApp, nativeDisableNotify, nativeEnableNotify } from './nativeBridge.js';
+import { inNativeApp, nativeDisableNotify, nativeEnableNotify, nativeRefreshNotify } from './nativeBridge.js';
 // ─────────────────────────────────────────────────────────────
 //  매일 아침 알림
 //
@@ -183,6 +183,7 @@ export async function showNotification(body) {
 /** 푸시가 못 가는 환경을 위한 보조: 앱을 열었을 때 오늘 못 봤으면 그때 띄움 */
 export async function catchUp(body = '내 띠 캐릭터가 오늘 점수를 기다리고 있어요.') {
   const cfg = loadNotify();
+  if (inNativeApp()) { nativeRefreshNotify(cfg); return false; } // 앱은 휴대폰이 직접 띄워요
   if (!cfg.on || notifyPermission() !== 'granted') return false;
   const now = new Date();
   const due = new Date();

@@ -10,6 +10,7 @@ import {
   ANIMALS, BRANCHES, BRANCHES_KO, ELEMENTS_KO, GOD_OF, HIDDEN_STEMS, STEMS, STEMS_KO, STEM_EL,
   analyzeChart, branchRelation, mod, natalChart, twelveStage,
 } from './saju.js';
+import { gradeOf } from './fortune.js';
 
 const clamp = (v, lo = 15, hi = 96) => Math.round(Math.min(hi, Math.max(lo, v)));
 const mainEl = (b) => STEM_EL[HIDDEN_STEMS[b].at(-1)];
@@ -97,7 +98,7 @@ const SAMJAE_TEXT = {
   날삼재: '삼재가 나가는 해(날삼재)예요. 막혔던 일이 하반기로 갈수록 풀려 나가요.',
 };
 const eun = (w) => { const c = w.charCodeAt(w.length - 1); return w + ((c - 0xac00) % 28 ? '은' : '는'); };
-const grade = (s) => (s >= 80 ? '대길' : s >= 64 ? '길' : s >= 50 ? '소길' : s >= 38 ? '평' : '주의');
+const grade = (s) => gradeOf(s).label;
 
 /** 분야별 연간 점수 */
 function areaScores(total, se, p, fav, gender) {

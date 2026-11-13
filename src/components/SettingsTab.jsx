@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react';
-import { inNativeApp, onNativeMessage } from '../lib/nativeBridge.js';
+import { PUBLIC_URL, inNativeApp, isCapacitor, onNativeMessage } from '../lib/nativeBridge.js';
+
+/** 바깥 주소 열기 (앱 안에서는 인앱 브라우저로) */
+const openLink = async (url) => {
+  if (isCapacitor()) {
+    try { const { Browser } = await import('@capacitor/browser'); await Browser.open({ url }); return; } catch { /* 아래로 */ }
+  }
+  window.open(url, '_blank', 'noopener');
+};
 import { ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { ANIMALS, HOURS, natalChart } from '../lib/saju.js';
 import { STEM_COLOR } from '../lib/fortune.js';
@@ -202,6 +210,7 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
         <Row label="운세는 어떻게 계산하나요?" onClick={() => setSheet('how')} />
         <Row label="운세를 볼 때 기억해 주세요" onClick={() => setSheet('fun')} />
         <Row label="앱 정보" value="v1.2.0" onClick={() => setSheet('about')} />
+        <Row label="개인정보처리방침" onClick={() => openLink(`${PUBLIC_URL}/privacy.html`)} />
       </Group>
 
       <Group>
@@ -210,7 +219,7 @@ export default function SettingsTab({ profile, settings, setSettings, onEdit, on
         <Row label="모든 정보 지우고 처음부터" danger onClick={() => setSheet('reset')} />
       </Group>
 
-      <p className="pt-2 text-center text-[9px] text-faint/60" aria-hidden="true">v15</p>
+      <p className="pt-2 text-center text-[9px] text-faint/60" aria-hidden="true">v16</p>
 
       <Sheet open={!!toDelete} onClose={() => setToDelete(null)} label="사람 삭제">
         {toDelete && (

@@ -1,0 +1,23 @@
+{
+  "appId": "com.linkdole.ttiring",
+  "appName": "띠링",
+  "webDir": "dist",
+  "backgroundColor": "#F4F4F6",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#F4F4F6",
+    "scheme": "Ttiring"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 900,
+      "launchAutoHide": true,
+      "backgroundColor": "#E8C25C",
+      "showSpinner": false,
+      "launchFadeOutDuration": 250
+    },
+    "LocalNotifications": {
+      "iconColor": "#B5432F"
+    }
+  }
+}
