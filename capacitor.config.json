@@ -19,5 +19,9 @@
     "LocalNotifications": {
       "iconColor": "#B5432F"
     }
+  },
+  "server": {
+    "url": "https://ttiring.han0829.workers.dev",
+    "cleartext": false
   }
 }
