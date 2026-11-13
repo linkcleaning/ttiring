@@ -81,7 +81,7 @@ async function capSchedule(hour, minute) {
       id: BASE_ID + i,
       title: '띠링! 오늘의 운세가 도착했어요',
       body: lines[i],
-      schedule: { at, allowWhileIdle: true },
+      schedule: { at },
     })),
   });
   return true;
